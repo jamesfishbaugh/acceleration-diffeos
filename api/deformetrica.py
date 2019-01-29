@@ -530,7 +530,7 @@ class Deformetrica:
             if not model_options['freeze_control_points']:
                 model_options['freeze_control_points'] = True
                 msg = 'With active dense mode, the freeze_template (currently %s) and freeze_control_points ' \
-                      '(currently %s) flags are redundant. Defaulting to freeze_control_poi∂nts = True.' \
+                      '(currently %s) flags are redundant. Defaulting to freeze_control_points = True.' \
                       % (str(model_options['freeze_template']), str(model_options['freeze_control_points']))
                 print('>> ' + msg)
             if model_options['initial_control_points'] is not None:

@@ -299,7 +299,6 @@ def get_model_options(xml_parameters):
     elif xml_parameters.model_type.lower() == 'AccelerationRegression'.lower():
         options['tmin'] = xml_parameters.tmin
         options['tmax'] = xml_parameters.tmax
-        options['use_intensity_model'] = xml_parameters.use_intensity_model
 
     elif xml_parameters.model_type.lower() == 'AccelerationFlow'.lower():
         options['tmin'] = xml_parameters.tmin

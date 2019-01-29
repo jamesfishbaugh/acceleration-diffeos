@@ -149,24 +149,18 @@ class AccelerationPath:
     ### Writing methods:
     ####################################################################################################################
 
-    def write2(self, root_name, objects_name, objects_extension, template, template_data, slope_image, output_dir, write_adjoint_parameters=False):
+    def write2(self, root_name, objects_name, objects_extension, template, template_data, output_dir, write_adjoint_parameters=False):
 
         # Core loop ----------------------------------------------------------------------------------------------------
         times = self._get_times()
         for t, time in enumerate(times):
             names = []
             for k, (object_name, object_extension) in enumerate(zip(objects_name, objects_extension)):
-                #name = root_name + '__AccelerationFlow__' + object_name + '__tp_' + str(t) + ('__age_%.2f' % time) + object_extension
                 name = '%s__AccelerationFlow__%s__%0.03d%s' %(root_name, object_name, t, object_extension)
                 print(name)
                 names.append(name)
             deformed_points = self.get_template_points(time)
-            if slope_image is not None:
-                linear_image_model = {}
-                linear_image_model['image_intensities'] = slope_image*time + template_data['image_intensities']
-                deformed_data = template.get_deformed_data(deformed_points, linear_image_model)
-            else:
-                deformed_data = template.get_deformed_data(deformed_points, template_data)
+            deformed_data = template.get_deformed_data(deformed_points, template_data)
             template.write(output_dir, names, {key: value.detach().cpu().numpy() for key, value in deformed_data.items()})
 
     def write(self, root_name, objects_name, objects_extension, template, template_data, A, B, C,
