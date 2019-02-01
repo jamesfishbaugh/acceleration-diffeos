@@ -244,6 +244,7 @@ def get_estimator_options(xml_parameters):
 
 
 def get_model_options(xml_parameters):
+
     options = {
         'deformation_kernel_type': xml_parameters.deformation_kernel_type,
         'deformation_kernel_width': xml_parameters.deformation_kernel_width,

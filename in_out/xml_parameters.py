@@ -377,8 +377,6 @@ class XmlParameters:
     # Read the parameters from the optimization_parameters xml.
     def _read_optimization_parameters_xml(self, optimization_parameters_xml_path):
 
-        print(optimization_parameters_xml_path)
-
         optimization_parameters_xml_level0 = et.parse(optimization_parameters_xml_path).getroot()
 
         for optimization_parameters_xml_level1 in optimization_parameters_xml_level0:
@@ -463,7 +461,6 @@ class XmlParameters:
                 self.freeze_scaling_ratios = self._on_off_to_bool(optimization_parameters_xml_level1.text)
             elif optimization_parameters_xml_level1.tag.lower() == 'gradient-based-estimator':
                 self.gradient_based_estimator = optimization_parameters_xml_level1.text
-                
             elif optimization_parameters_xml_level1.tag.lower() == 'estimate-initial-velocity':
                 self.estimate_initial_velocity = self._on_off_to_bool(optimization_parameters_xml_level1.text)
             elif optimization_parameters_xml_level1.tag.lower() == 'initial-velocity-weight':

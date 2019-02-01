@@ -227,6 +227,8 @@ class Image:
         if intensities is None:
             intensities = self.get_intensities()
 
+        should_rescale = False
+
         if (should_rescale):
             intensities_rescaled = rescale_image_intensities(intensities, self.intensities_dtype)
         else:

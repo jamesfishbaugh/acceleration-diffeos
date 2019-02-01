@@ -76,7 +76,7 @@ class DeformableObjectReader:
             out_object.update()
 
         elif object_type.lower() == 'Image'.lower():
-            if object_filename.find(".png") > 0:
+            if object_filename.find(".png") > 0 or object_filename.find(".tif") > 0:
                 img_data = np.array(pimg.open(object_filename))
                 dimension = len(img_data.shape)
                 img_affine = np.eye(dimension + 1)

@@ -105,11 +105,6 @@ class AccelerationGompertzRegression(AbstractStatisticalModel):
             self.sobolev_kernel = kernel_factory.factory(deformation_kernel_type, smoothing_kernel_width,
                                                          device=deformation_kernel_device)
 
-        #self.deformation_attachment_weight = 10
-        #self.intensity_attachment_weight = 1
-        #self.total_variation_weight = 1
-        #self.deformation_regularity_weight = 1
-
         # Template data.
         self.fixed_effects['template_data'] = self.template.get_data()
 
@@ -275,7 +270,7 @@ class AccelerationGompertzRegression(AbstractStatisticalModel):
 
         # Compute gradient if needed -----------------------------------------------------------------------------------
         if with_grad:
-            total = self.initial_velocity_weight * velocity_regularity + regularity + intensity_attachment + deformation_attachment + total_variation
+            total = self.initial_velocity_weight * velocity_regularity + regularity + intensity_attachment + deformation_attachment
             total.backward()
 
             gradient = {}
@@ -310,11 +305,16 @@ class AccelerationGompertzRegression(AbstractStatisticalModel):
             # Convert the gradient back to numpy.
             gradient = {key: value.data.cpu().numpy() for key, value in gradient.items()}
 
-            return deformation_attachment.detach().cpu().numpy() + intensity_attachment.detach().cpu().numpy(), total_variation.detach().cpu().numpy() + regularity.detach().cpu().numpy() + self.initial_velocity_weight * velocity_regularity.detach().cpu().numpy(), gradient
+            #return deformation_attachment.detach().cpu().numpy() + intensity_attachment.detach().cpu().numpy(), \
+            #       total_variation.detach().cpu().numpy() + regularity.detach().cpu().numpy() + self.initial_velocity_weight * velocity_regularity.detach().cpu().numpy(), gradient
+
+            return intensity_attachment.detach().cpu().numpy(), \
+                   regularity.detach().cpu().numpy() + self.initial_velocity_weight * velocity_regularity.detach().cpu().numpy(), gradient
 
         else:
 
-            return deformation_attachment.detach().cpu().numpy() + intensity_attachment.detach().cpu().numpy(), total_variation.detach().cpu().numpy() + regularity.detach().cpu().numpy() + self.initial_velocity_weight * velocity_regularity.detach().cpu().numpy()
+            return intensity_attachment.detach().cpu().numpy(), \
+                   regularity.detach().cpu().numpy() + self.initial_velocity_weight * velocity_regularity.detach().cpu().numpy()
 
     ####################################################################################################################
     ### Private methods:
@@ -343,8 +343,14 @@ class AccelerationGompertzRegression(AbstractStatisticalModel):
         for i in range(0, len(deformation_noise_variance)):
             deformation_noise_variance[i] = 1 #self.objects_noise_variance[i]*10
 
-        total_variation = torch.zeros([1], dtype=torch.float32, requires_grad=True)
+        #cuda0 = torch.device('cuda:0')
+        #total_variation = torch.zeros([1], dtype=torch.float, requires_grad=True, device=cuda0)
 
+        #total_variation_np = np.array([0])
+        #total_variation = Variable(torch.from_numpy(total_variation_np).type(self.tensor_scalar_type), requires_grad=True)
+
+
+        total_variation = 0.
         deformation_attachment = 0.
         intensity_attachment = 0.
         for j, (time, obj) in enumerate(zip(target_times, target_objects)):
@@ -374,7 +380,6 @@ class AccelerationGompertzRegression(AbstractStatisticalModel):
             deformation_attachment -= self.multi_object_attachment.compute_weighted_distance(deformed_data_noitensity,
                                                                                              self.template, obj,
                                                                                              deformation_noise_variance)
-
         regularity = - self.acceleration_path.get_norm_squared()
 
         velocity_regularity = - self.acceleration_path.get_velocity_norm()
@@ -420,10 +425,12 @@ class AccelerationGompertzRegression(AbstractStatisticalModel):
         self.fixed_effects['A'] = A
         A = Variable(torch.from_numpy(A).type(self.tensor_scalar_type), requires_grad=(with_grad))
         B = self.fixed_effects['B']
+        B[B <= 0] = 1e-8
         B = gaussian_filter(B, sigma=0.75)
         self.fixed_effects['B'] = B
         B = Variable(torch.from_numpy(B).type(self.tensor_scalar_type), requires_grad=(with_grad))
         C = self.fixed_effects['C']
+        C[C <= 0] = 1e-8
         C = gaussian_filter(C, sigma=0.75)
         self.fixed_effects['C'] = C
         C = Variable(torch.from_numpy(C).type(self.tensor_scalar_type), requires_grad=(with_grad))
@@ -504,6 +511,29 @@ class AccelerationGompertzRegression(AbstractStatisticalModel):
                 deformed_data = self.template.get_deformed_data(deformed_points, linear_image_model)
                 self.template.write(output_dir, names,
                                     {key: value.data.cpu().numpy() for key, value in deformed_data.items()})
+
+        # Write the A, B, and C images
+        A_im = image.Image(self.dimension)
+        A_im.set_intensities(A.data.cpu().numpy())
+        B_im = image.Image(self.dimension)
+        B_im.set_intensities(B.data.cpu().numpy())
+        C_im = image.Image(self.dimension)
+        C_im.set_intensities(C.data.cpu().numpy())
+
+        if (self.dimension == 2):
+            A_im.set_dtype(np.dtype(np.float32))
+            B_im.set_dtype(np.dtype(np.float32))
+            C_im.set_dtype(np.dtype(np.float32))
+            A_im.write(output_dir, self.name + "__A_image.tif", should_rescale=False)
+            B_im.write(output_dir, self.name + "__B_image.tif", should_rescale=False)
+            C_im.write(output_dir, self.name + "__C_image.tif", should_rescale=False)
+        else:
+            A_im.set_dtype(np.dtype(np.float32))
+            B_im.set_dtype(np.dtype(np.float32))
+            C_im.set_dtype(np.dtype(np.float32))
+            A_im.write(output_dir, self.name + "__A_image.nii", should_rescale=False)
+            B_im.write(output_dir, self.name + "__B_image.nii", should_rescale=False)
+            C_im.write(output_dir, self.name + "__C_image.nii", should_rescale=False)
 
 
 
