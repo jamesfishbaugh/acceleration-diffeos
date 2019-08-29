@@ -191,16 +191,21 @@ def create_template_metadata(template_specifications, dimension=None):
         objects_norm.append(object_norm)
 
         if object_norm in ['current', 'pointcloud', 'varifold']:
+            #print('We in here creating a kernel')
+            #print(object)
             objects_norm_kernels.append(kernel_factory.factory(
-                object['kernel_type'],
+                'torch',
                 object['kernel_width'],
                 device=object['kernel_device'] if 'kernel_device' in object else default.deformation_kernel_device))
         else:
+            #print('NO KERNEL??')
             objects_norm_kernels.append(kernel_factory.factory(kernel_factory.Type.NO_KERNEL))
 
         # Optional grid downsampling parameter for image data.
         if object_type == 'image' and 'downsampling_factor' in list(object.keys()):
             objects_list[-1].downsampling_factor = object['downsampling_factor']
+
+    print(objects_norm_kernels)
 
     multi_object_attachment = MultiObjectAttachment(objects_norm, objects_norm_kernels)
 

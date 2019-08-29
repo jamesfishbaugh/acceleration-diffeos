@@ -44,7 +44,6 @@ class AccelerationGompertzRegression(AbstractStatisticalModel):
                  number_of_time_points=default.number_of_time_points,
 
                  freeze_template=default.freeze_template,
-                 use_intensity_model=False,
                  use_sobolev_gradient=default.use_sobolev_gradient,
                  smoothing_kernel_width=default.smoothing_kernel_width,
                  estimate_initial_velocity=default.estimate_initial_velocity,
@@ -68,12 +67,9 @@ class AccelerationGompertzRegression(AbstractStatisticalModel):
         # Declare model structure.
         self.fixed_effects['template_data'] = None
         self.fixed_effects['control_points'] = None
-        self.fixed_effects['momenta'] = None
 
         self.freeze_template = freeze_template
         self.freeze_control_points = freeze_control_points
-
-        self.use_intensity_model = use_intensity_model
 
         # Deformation.
         self.acceleration_path = AccelerationPath(
@@ -156,6 +152,10 @@ class AccelerationGompertzRegression(AbstractStatisticalModel):
                     self.objects_noise_variance[k] = nv
                     print('>> Automatically chosen noise std: %.4f [ %s ]' % (math.sqrt(nv), obj))
 
+    def set_asymptote_image(self, A):
+        print("SETTING ASYMPTOTE IMAGE")
+        self.A = A
+
     ####################################################################################################################
     ### Encapsulation methods:
     ####################################################################################################################
@@ -235,8 +235,8 @@ class AccelerationGompertzRegression(AbstractStatisticalModel):
         self.set_impulse_t(fixed_effects['impulse_t'])
         if self.estimate_initial_velocity:
             self.set_initial_velocity(fixed_effects['initial_velocity'])
-        if self.use_intensity_model:
-            self.set_slope_image(fixed_effects['slope_image'])
+        #if self.use_intensity_model:
+        #    self.set_slope_image(fixed_effects['slope_image'])
         self.set_A(fixed_effects['A'])
         self.set_B(fixed_effects['B'])
         self.set_C(fixed_effects['C'])
@@ -270,7 +270,8 @@ class AccelerationGompertzRegression(AbstractStatisticalModel):
 
         # Compute gradient if needed -----------------------------------------------------------------------------------
         if with_grad:
-            total = self.initial_velocity_weight * velocity_regularity + regularity + intensity_attachment + deformation_attachment
+            total = self.initial_velocity_weight * velocity_regularity + regularity + total_variation + intensity_attachment + deformation_attachment
+            #total = self.initial_velocity_weight * velocity_regularity + regularity + intensity_attachment + deformation_attachment
             total.backward()
 
             gradient = {}
@@ -308,12 +309,14 @@ class AccelerationGompertzRegression(AbstractStatisticalModel):
             #return deformation_attachment.detach().cpu().numpy() + intensity_attachment.detach().cpu().numpy(), \
             #       total_variation.detach().cpu().numpy() + regularity.detach().cpu().numpy() + self.initial_velocity_weight * velocity_regularity.detach().cpu().numpy(), gradient
 
-            return intensity_attachment.detach().cpu().numpy(), \
+            return deformation_attachment.detach().cpu().numpy() + intensity_attachment.detach().cpu().numpy(), \
                    regularity.detach().cpu().numpy() + self.initial_velocity_weight * velocity_regularity.detach().cpu().numpy(), gradient
 
         else:
 
-            return intensity_attachment.detach().cpu().numpy(), \
+            #eturn deformation_attachment.detach().cpu().numpy() + intensity_attachment.detach().cpu().numpy(), \
+            #       total_variation.detach().cpu().numpy() + regularity.detach().cpu().numpy() + self.initial_velocity_weight * velocity_regularity.detach().cpu().numpy()
+            return deformation_attachment.detach().cpu().numpy() + intensity_attachment.detach().cpu().numpy(), \
                    regularity.detach().cpu().numpy() + self.initial_velocity_weight * velocity_regularity.detach().cpu().numpy()
 
     ####################################################################################################################
@@ -350,6 +353,10 @@ class AccelerationGompertzRegression(AbstractStatisticalModel):
         #total_variation = Variable(torch.from_numpy(total_variation_np).type(self.tensor_scalar_type), requires_grad=True)
 
 
+        intensity_weight = 100
+        deformation_weight = 1
+        regularity_weight = 10000
+
         total_variation = 0.
         deformation_attachment = 0.
         intensity_attachment = 0.
@@ -359,20 +366,11 @@ class AccelerationGompertzRegression(AbstractStatisticalModel):
             linear_image_model = {}
             linear_image_model['image_intensities'] = A*torch.exp(-B*torch.exp(-C*time))
             deformed_data_withitensity = self.template.get_deformed_data(deformed_points, linear_image_model)
+            #print(deformed_data_withitensity)
+            #quit()
             intensity_attachment -= self.multi_object_attachment.compute_weighted_distance(deformed_data_withitensity,
                                                                                            self.template, obj,
                                                                                            self.objects_noise_variance)
-
-        if (self.dimension == 2):
-            total_var_weight = 100
-            # Compute total variation norm
-            linear_image_model = {}
-            linear_image_model['image_intensities'] = template_data['image_intensities'] + A * torch.exp(-B * torch.exp(-C * min(target_times)))
-            height, width = linear_image_model['image_intensities'].size()
-            dy = torch.abs(linear_image_model['image_intensities'][-1:, :] - linear_image_model['image_intensities'][:-1, :])
-            error = torch.norm(dy, 1)
-            total_variation = 10*(-(error / height)*total_var_weight)
-
 
             nointensity_model = {}
             nointensity_model['image_intensities'] = A * torch.exp(-B * torch.exp(-C * min(target_times)))
@@ -380,9 +378,27 @@ class AccelerationGompertzRegression(AbstractStatisticalModel):
             deformation_attachment -= self.multi_object_attachment.compute_weighted_distance(deformed_data_noitensity,
                                                                                              self.template, obj,
                                                                                              deformation_noise_variance)
-        regularity = - self.acceleration_path.get_norm_squared()
+
+        if (self.dimension == 2):
+            total_var_weight = 0.1
+            # Compute total variation norm
+            linear_image_model = {}
+            linear_image_model['image_intensities'] = A * torch.exp(-B * torch.exp(-C * min(target_times)))
+            height, width = linear_image_model['image_intensities'].size()
+            dy = torch.abs(linear_image_model['image_intensities'][-1:, :] - linear_image_model['image_intensities'][:-1, :])
+            error = torch.norm(dy, 1)
+            total_variation = (-(error / height)*total_var_weight)
+
+
+
+        regularity = - self.acceleration_path.get_norm_squared() * regularity_weight
+        #print(regularity)
 
         velocity_regularity = - self.acceleration_path.get_velocity_norm()
+
+        deformation_attachment = deformation_attachment * deformation_weight
+        intensity_attachment = intensity_attachment * intensity_weight
+
 
         # print(deformation_attachment)
         # print(intensity_attachment)
@@ -475,9 +491,14 @@ class AccelerationGompertzRegression(AbstractStatisticalModel):
             out_image.set_intensities(intensities.data.cpu().numpy())
 
             if (self.dimension == 2):
-                out_image.set_dtype(np.dtype(np.float32))
-                img_name = '%s__intensity_only_model_%0.3d.tif' %(self.name, t)
-                out_image.write(output_dir, img_name, should_rescale=False)
+                # For PNG
+                out_image.set_dtype(np.dtype(np.uint8))
+                img_name = '%s__intensity_only_model_%0.3d.png' %(self.name, t)
+                out_image.write(output_dir, img_name, should_rescale=True)
+                # For TIF
+                #out_image.set_dtype(np.dtype(np.float32))
+                #img_name = '%s__intensity_only_model_%0.3d.tif' % (self.name, t)
+                #out_image.write(output_dir, img_name, should_rescale=False)
             else:
                 out_image.set_dtype(np.dtype(np.float32))
                 img_name = '%s__intensity_only_model_%0.3d.nii' % (self.name, t)

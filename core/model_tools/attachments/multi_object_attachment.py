@@ -159,7 +159,9 @@ class MultiObjectAttachment:
         L2 image distance.
         """
         target_intensities = target.get_intensities_torch(tensor_scalar_type=intensities.type())
-        return torch.sum((intensities.view(-1) - target_intensities.view(-1)) ** 2)
+        #return torch.sum((intensities.view(-1) - target_intensities.view(-1)) ** 2)
+
+        return torch.sum((intensities - target_intensities) ** 2)
     
     @staticmethod
     def cross_correlation(intensities, target):
@@ -167,6 +169,8 @@ class MultiObjectAttachment:
         target_intensities = target.get_intensities_torch(tensor_scalar_type=intensities.type())
         
         return 1-f.cosine_similarity(intensities.view(-1), target_intensities.view(-1), dim=0)
+
+        #return 1 - f.cosine_similarity(intensities, target_intensities, dim=0)
 
 
     ####################################################################################################################

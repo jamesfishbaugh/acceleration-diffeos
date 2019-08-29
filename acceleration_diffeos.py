@@ -9,7 +9,6 @@ import api
 from __init__ import __version__
 from core import default
 from core.default import logger_format
-from gui.gui_window import StartGui
 from in_out.xml_parameters import XmlParameters
 from launch.estimate_longitudinal_metric_model import estimate_longitudinal_metric_model
 from launch.estimate_longitudinal_metric_registration import estimate_longitudinal_metric_registration
@@ -32,7 +31,7 @@ def main():
 
     # main parser
     description = 'Statistical analysis of 2D and 3D shape data. ' + os.linesep + os.linesep + 'version ' + __version__
-    parser = argparse.ArgumentParser(prog='deformetrica', description=description, formatter_class=argparse.RawTextHelpFormatter)
+    parser = argparse.ArgumentParser(prog='accelerationdiffeos', description=description, formatter_class=argparse.RawTextHelpFormatter)
     subparsers = parser.add_subparsers(title='command', dest='command')
     subparsers.required = True  # make 'command' mandatory
 
@@ -47,10 +46,6 @@ def main():
 
     # gui command
     subparsers.add_parser('gui', add_help=False, parents=[common_parser])
-
-    # parser.add_argument('model', type=str, help='model xml file')
-    # parser.add_argument('optimization', type=str, help='optimization parameters xml file')
-    # parser.add_argument('--dataset', type=str, help='data-set xml file')
 
     args = parser.parse_args()
 
@@ -85,7 +80,9 @@ def main():
         except FileExistsError:
             pass
 
-        deformetrica = api.Deformetrica(output_dir=output_dir)
+        acceleration_diffeos = api.AccelerationDiffeos(output_dir=output_dir)
+
+        #accel_diffeos = api.AccelerationDiffeos(output_dir=output_dir)
 
         file_handler = logging.FileHandler(os.path.join(output_dir, 'log.txt'), mode='w')
         logger.addHandler(file_handler)
@@ -99,87 +96,88 @@ def main():
         # logger.debug('xml_parameters.tensor_scalar_type=' + str(xml_parameters.tensor_scalar_type))
 
         if xml_parameters.model_type == 'Registration'.lower():
-            deformetrica.estimate_registration(
+            acceleration_diffeos.estimate_registration(
                 xml_parameters.template_specifications,
                 get_dataset_specifications(xml_parameters),
                 estimator_options=get_estimator_options(xml_parameters),
                 model_options=get_model_options(xml_parameters))
 
         elif xml_parameters.model_type == 'DeterministicAtlas'.lower():
-            deformetrica.estimate_deterministic_atlas(
+            acceleration_diffeos.estimate_deterministic_atlas(
                 xml_parameters.template_specifications,
                 get_dataset_specifications(xml_parameters),
                 estimator_options=get_estimator_options(xml_parameters),
                 model_options=get_model_options(xml_parameters))
 
         elif xml_parameters.model_type == 'BayesianAtlas'.lower():
-            deformetrica.estimate_bayesian_atlas(
+            acceleration_diffeos.estimate_bayesian_atlas(
                 xml_parameters.template_specifications,
                 get_dataset_specifications(xml_parameters),
                 estimator_options=get_estimator_options(xml_parameters),
                 model_options=get_model_options(xml_parameters))
 
         elif xml_parameters.model_type == 'PrincipalGeodesicAnalysis'.lower():
-            deformetrica.estimate_principal_geodesic_analysis(
+            acceleration_diffeos.estimate_principal_geodesic_analysis(
                 xml_parameters.template_specifications,
                 get_dataset_specifications(xml_parameters),
                 estimator_options=get_estimator_options(xml_parameters),
                 model_options=get_model_options(xml_parameters))
 
         elif xml_parameters.model_type == 'AffineAtlas'.lower():
-            deformetrica.estimate_affine_atlas(
+            acceleration_diffeos.estimate_affine_atlas(
                 xml_parameters.template_specifications,
                 get_dataset_specifications(xml_parameters),
                 estimator_options=get_estimator_options(xml_parameters),
                 model_options=get_model_options(xml_parameters))
 
         elif xml_parameters.model_type == 'Regression'.lower():
-            deformetrica.estimate_geodesic_regression(
+            acceleration_diffeos.estimate_geodesic_regression(
                 xml_parameters.template_specifications,
                 get_dataset_specifications(xml_parameters),
                 estimator_options=get_estimator_options(xml_parameters),
                 model_options=get_model_options(xml_parameters))
                 
         elif xml_parameters.model_type == 'AccelerationRegression'.lower():
-            deformetrica.estimate_acceleration_regression(
+            acceleration_diffeos.estimate_acceleration_regression(
                 xml_parameters.template_specifications,
                 get_dataset_specifications(xml_parameters),
                 estimator_options=get_estimator_options(xml_parameters),
                 model_options=get_model_options(xml_parameters))
 
         elif xml_parameters.model_type == 'AccelerationGompertzRegression'.lower():
-            deformetrica.estimate_acceleration_gompertz_regression(
+            print('AccelerationGompertzRegression')
+            acceleration_diffeos.estimate_acceleration_gompertz_regression(
                 xml_parameters.template_specifications,
                 get_dataset_specifications(xml_parameters),
                 estimator_options=get_estimator_options(xml_parameters),
                 model_options=get_model_options(xml_parameters))
 
         elif xml_parameters.model_type == 'LongitudinalAtlas'.lower():
-            deformetrica.estimate_longitudinal_atlas(
+            acceleration_diffeos.estimate_longitudinal_atlas(
                 xml_parameters.template_specifications,
                 get_dataset_specifications(xml_parameters),
                 estimator_options=get_estimator_options(xml_parameters),
                 model_options=get_model_options(xml_parameters))
 
         elif xml_parameters.model_type == 'LongitudinalRegistration'.lower():
-            deformetrica.estimate_longitudinal_registration(
+            acceleration_diffeos.estimate_longitudinal_registration(
                 xml_parameters.template_specifications,
                 get_dataset_specifications(xml_parameters),
                 estimator_options=get_estimator_options(xml_parameters),
                 model_options=get_model_options(xml_parameters))
 
         elif xml_parameters.model_type == 'Shooting'.lower():
-            deformetrica.compute_shooting(
+            acceleration_diffeos.compute_shooting(
                 xml_parameters.template_specifications,
                 model_options=get_model_options(xml_parameters))
                 
         elif xml_parameters.model_type == 'AccelerationFlow'.lower():
-            deformetrica.compute_acceleration_flow(
+            acceleration_diffeos.compute_acceleration_flow(
                 xml_parameters.template_specifications,
                 model_options=get_model_options(xml_parameters))
 
         elif xml_parameters.model_type == 'ParallelTransport'.lower():
-            deformetrica.compute_parallel_transport(
+            acceleration_diffeos.compute_parallel_transport(
                 xml_parameters.template_specifications,
                 model_options=get_model_options(xml_parameters))
 

@@ -14,6 +14,8 @@ class KeopsKernel(AbstractKernel):
         if device.lower() == 'cuda':
             device = 'GPU'
 
+        print("Creating keops kernel")
+
         super().__init__('keops', kernel_width, device)
 
         self.gamma = 1. / default.tensor_scalar_type([self.kernel_width ** 2])

@@ -1,1 +1,1 @@
-from .deformetrica import Deformetrica
+from .acceleration_diffeos import AccelerationDiffeos

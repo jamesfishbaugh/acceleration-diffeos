@@ -12,14 +12,17 @@ from core.models.model_functions import initialize_control_points, initialize_im
 from core.observations.deformable_objects.deformable_multi_object import DeformableMultiObject
 from in_out.array_readers_and_writers import *
 from in_out.dataset_functions import create_template_metadata
+from core.observations.deformable_objects import image
 
 from numpy import linalg as LA
+from scipy.ndimage.filters import gaussian_filter
+
 logger = logging.getLogger(__name__)
 
 
-class AccelerationRegression(AbstractStatisticalModel):
+class AccelerationGompertzRegressionV2(AbstractStatisticalModel):
     """
-    Acceleration regression object class.
+    Acceleration regression object class with gompertz intensity model change
     """
 
     ####################################################################################################################
@@ -68,8 +71,6 @@ class AccelerationRegression(AbstractStatisticalModel):
         self.freeze_template = freeze_template
         self.freeze_control_points = freeze_control_points
 
-        print(number_of_time_points)
-
         # Deformation.
         self.acceleration_path = AccelerationPath(
             kernel=kernel_factory.factory(deformation_kernel_type, deformation_kernel_width,
@@ -86,6 +87,12 @@ class AccelerationRegression(AbstractStatisticalModel):
 
         template_data = self.template.get_data()
 
+        # Set up the gompertz images A, B, and C
+        intensities = template_data['image_intensities']
+        self.fixed_effects['A'] = np.zeros(intensities.shape)
+        self.fixed_effects['B'] = np.zeros(intensities.shape)
+        self.fixed_effects['C'] = np.zeros(intensities.shape)
+
         self.number_of_objects = len(self.template.object_list)
 
         self.use_sobolev_gradient = use_sobolev_gradient
@@ -93,10 +100,6 @@ class AccelerationRegression(AbstractStatisticalModel):
         if self.use_sobolev_gradient:
             self.sobolev_kernel = kernel_factory.factory(deformation_kernel_type, smoothing_kernel_width,
                                                          device=deformation_kernel_device)
-
-        self.deformation_attachment_weight = 10
-        self.total_variation_weight = 1
-        self.deformation_regularity_weight = 1
 
         # Template data.
         self.fixed_effects['template_data'] = self.template.get_data()
@@ -149,6 +152,10 @@ class AccelerationRegression(AbstractStatisticalModel):
                     self.objects_noise_variance[k] = nv
                     print('>> Automatically chosen noise std: %.4f [ %s ]' % (math.sqrt(nv), obj))
 
+    def set_asymptote_image(self, A):
+        print("SETTING ASYMPTOTE IMAGE")
+        self.A = A
+
     ####################################################################################################################
     ### Encapsulation methods:
     ####################################################################################################################
@@ -176,6 +183,24 @@ class AccelerationRegression(AbstractStatisticalModel):
     def set_impulse_t(self, impulse_t):
         self.fixed_effects['impulse_t'] = impulse_t
 
+    def get_A(self):
+        return self.fixed_effects['A']
+
+    def set_A(self, A):
+        self.fixed_effects['A'] = A
+
+    def get_B(self):
+        return self.fixed_effects['B']
+
+    def set_B(self, B):
+        self.fixed_effects['B'] = B
+
+    def get_C(self):
+        return self.fixed_effects['C']
+
+    def set_C(self, C):
+        self.fixed_effects['C'] = C
+
     def get_initial_velocity(self):
         if (self.estimate_initial_velocity):
             return self.fixed_effects['initial_velocity']
@@ -196,6 +221,9 @@ class AccelerationRegression(AbstractStatisticalModel):
         out['impulse_t'] = self.fixed_effects['impulse_t']
         if self.estimate_initial_velocity:
             out['initial_velocity'] = self.fixed_effects['initial_velocity']
+        out['A'] = self.fixed_effects['A']
+        out['B'] = self.fixed_effects['B']
+        out['C'] = self.fixed_effects['C']
         return out
 
     def set_fixed_effects(self, fixed_effects):
@@ -207,6 +235,12 @@ class AccelerationRegression(AbstractStatisticalModel):
         self.set_impulse_t(fixed_effects['impulse_t'])
         if self.estimate_initial_velocity:
             self.set_initial_velocity(fixed_effects['initial_velocity'])
+        #if self.use_intensity_model:
+        #    self.set_slope_image(fixed_effects['slope_image'])
+        self.set_A(fixed_effects['A'])
+        self.set_B(fixed_effects['B'])
+        self.set_C(fixed_effects['C'])
+
 
     ####################################################################################################################
     ### Public methods:
@@ -218,26 +252,26 @@ class AccelerationRegression(AbstractStatisticalModel):
         """
         Compute the log-likelihood of the dataset, given parameters fixed_effects and random effects realizations
         population_RER and indRER.
+
         :param dataset: LongitudinalDataset instance
         :param fixed_effects: Dictionary of fixed effects.
         :param population_RER: Dictionary of population random effects realizations.
         :param indRER: Dictionary of individual random effects realizations.
-        :param with_grad: Flag that indicates wether the gradient should be returned as well.
+        :param with_grad: Flag that indicates whether the gradient should be returned as well.
         :return:
         """
         # Initialize: conversion from numpy to torch -------------------------------------------------------------------
-        template_data, template_points, control_points, impulse_t, initial_velocity = self._fixed_effects_to_torch_tensors(with_grad)
+        template_data, template_points, control_points, impulse_t, initial_velocity, A, B, C = self._fixed_effects_to_torch_tensors(
+            with_grad)
 
         # Deform -------------------------------------------------------------------------------------------------------
-        deformation_attachment, regularity, velocity_regularity = self._compute_attachment_and_regularity(
-            dataset, template_data, template_points, control_points, impulse_t, initial_velocity)
+        data_attachment, regularity, velocity_regularity, total_variation = self._compute_attachment_and_regularity(
+            dataset, template_data, template_points, control_points, impulse_t, initial_velocity, A, B, C)
 
         # Compute gradient if needed -----------------------------------------------------------------------------------
         if with_grad:
-
-            total = self.initial_velocity_weight * velocity_regularity + \
-                    self.deformation_regularity_weight * regularity + \
-                    self.deformation_attachment_weight * deformation_attachment
+            total = self.initial_velocity_weight * velocity_regularity + regularity + total_variation + data_attachment
+            #total = self.initial_velocity_weight * velocity_regularity + regularity + intensity_attachment + deformation_attachment
             total.backward()
 
             gradient = {}
@@ -261,29 +295,36 @@ class AccelerationRegression(AbstractStatisticalModel):
             # Initial velocity
             if self.estimate_initial_velocity:
                 gradient['initial_velocity'] = initial_velocity.grad
+                # print(initial_velocity)
 
             # Impulse t
             gradient['impulse_t'] = impulse_t.grad
+            gradient['A'] = A.grad
+            gradient['B'] = B.grad
+            gradient['C'] = C.grad
 
             # Convert the gradient back to numpy.
             gradient = {key: value.data.cpu().numpy() for key, value in gradient.items()}
 
-            return self.deformation_attachment_weight * deformation_attachment.detach().cpu().numpy(), \
-                   self.deformation_regularity_weight * regularity.detach().cpu().numpy() + \
-                   self.initial_velocity_weight * velocity_regularity.detach().cpu().numpy(), gradient
+            #return deformation_attachment.detach().cpu().numpy() + intensity_attachment.detach().cpu().numpy(), \
+            #       total_variation.detach().cpu().numpy() + regularity.detach().cpu().numpy() + self.initial_velocity_weight * velocity_regularity.detach().cpu().numpy(), gradient
+
+            return data_attachment.detach().cpu().numpy(), \
+                   regularity.detach().cpu().numpy() + self.initial_velocity_weight * velocity_regularity.detach().cpu().numpy(), gradient
 
         else:
 
-            return self.deformation_attachment_weight * deformation_attachment.detach().cpu().numpy(), \
-                   self.deformation_regularity_weight * regularity.detach().cpu().numpy() + \
-                   self.initial_velocity_weight * velocity_regularity.detach().cpu().numpy()
+            #eturn deformation_attachment.detach().cpu().numpy() + intensity_attachment.detach().cpu().numpy(), \
+            #       total_variation.detach().cpu().numpy() + regularity.detach().cpu().numpy() + self.initial_velocity_weight * velocity_regularity.detach().cpu().numpy()
+            return data_attachment.detach().cpu().numpy(), \
+                   regularity.detach().cpu().numpy() + self.initial_velocity_weight * velocity_regularity.detach().cpu().numpy()
 
     ####################################################################################################################
     ### Private methods:
     ####################################################################################################################
 
     def _compute_attachment_and_regularity(self, dataset, template_data, template_points, control_points, impulse_t,
-                                           initial_velocity):
+                                           initial_velocity, A, B, C):
         """
         Core part of the ComputeLogLikelihood methods. Fully torch.
         """
@@ -301,20 +342,66 @@ class AccelerationRegression(AbstractStatisticalModel):
         self.acceleration_path.set_initial_velocity(initial_velocity)
         self.acceleration_path.update()
 
-        deformation_attachment = 0.
+        deformation_noise_variance = np.zeros(len(self.objects_noise_variance))
+        for i in range(0, len(deformation_noise_variance)):
+            deformation_noise_variance[i] = 1 #self.objects_noise_variance[i]*10
+
+        #cuda0 = torch.device('cuda:0')
+        #total_variation = torch.zeros([1], dtype=torch.float, requires_grad=True, device=cuda0)
+
+        #total_variation_np = np.array([0])
+        #total_variation = Variable(torch.from_numpy(total_variation_np).type(self.tensor_scalar_type), requires_grad=True)
+
+
+        #intensity_weight = 100
+        data_weight = 1
+        regularity_weight = 1
+        data_attachment = 0
+
+        template_data = self.template.get_data()
+        #baseline_intensities_numpy = template_data['image_intensities']
+        #baseline_intensities = Variable(torch.from_numpy(baseline_intensities_numpy).type(self.tensor_scalar_type),
+        #                                requires_grad=False)
+
+        total_variation = 0.
         for j, (time, obj) in enumerate(zip(target_times, target_objects)):
             deformed_points = self.acceleration_path.get_template_points(time)
-            deformed_data = self.template.get_deformed_data(deformed_points, template_data)
 
-            deformation_attachment -= self.multi_object_attachment.compute_weighted_distance(deformed_data,
-                                                                                             self.template, obj,
-                                                                                             self.objects_noise_variance)
+            image_intensity_model = {}
+            image_intensity_model['image_intensities'] = A * torch.exp(-B * torch.exp(-C * time))
 
-        regularity = - self.acceleration_path.get_norm_squared()
+            deformed_data_withitensity = self.template.get_deformed_data(deformed_points, image_intensity_model)
+            data_attachment -= self.multi_object_attachment.compute_weighted_distance(deformed_data_withitensity, self.template, obj,
+                                                                                           self.objects_noise_variance)
 
-        velocity_regularity = - self.acceleration_path.get_velocity_norm()
 
-        return deformation_attachment, regularity, velocity_regularity
+
+        if (self.dimension == 2):
+            total_var_weight = 0.1
+            # Compute total variation norm
+            image_intensity_model = {}
+            image_intensity_model['image_intensities'] = A * torch.exp(-B * torch.exp(-C * min(target_times)))
+            height, width = image_intensity_model['image_intensities'].size()
+            dy = torch.abs(image_intensity_model['image_intensities'][-1:, :] - image_intensity_model['image_intensities'][:-1, :])
+            error = torch.norm(dy, 1)
+            total_variation = (-(error / height)*total_var_weight)
+
+
+
+        regularity = -self.acceleration_path.get_norm_squared() * regularity_weight
+
+        velocity_regularity = -self.acceleration_path.get_velocity_norm()
+
+        data_attachment = data_attachment * data_weight
+
+
+        # print(deformation_attachment)
+        # print(intensity_attachment)
+        # print(regularity)
+        # print(velocity_regularity)
+        # print(total_variation)
+
+        return data_attachment, regularity, velocity_regularity, total_variation
 
     ####################################################################################################################
     ### Private utility methods:
@@ -344,6 +431,21 @@ class AccelerationRegression(AbstractStatisticalModel):
         impulse_t = self.fixed_effects['impulse_t']
         impulse_t = Variable(torch.from_numpy(impulse_t).type(self.tensor_scalar_type), requires_grad=with_grad)
 
+        A = self.fixed_effects['A']
+        A = gaussian_filter(A, sigma=0.75)
+        self.fixed_effects['A'] = A
+        A = Variable(torch.from_numpy(A).type(self.tensor_scalar_type), requires_grad=(with_grad))
+        B = self.fixed_effects['B']
+        B[B <= 0] = 1e-8
+        B = gaussian_filter(B, sigma=0.75)
+        self.fixed_effects['B'] = B
+        B = Variable(torch.from_numpy(B).type(self.tensor_scalar_type), requires_grad=(with_grad))
+        C = self.fixed_effects['C']
+        C[C <= 0] = 1e-8
+        C = gaussian_filter(C, sigma=0.75)
+        self.fixed_effects['C'] = C
+        C = Variable(torch.from_numpy(C).type(self.tensor_scalar_type), requires_grad=(with_grad))
+
         if (self.estimate_initial_velocity):
             initial_velocity = self.fixed_effects['initial_velocity']
             # Scale to unit norm
@@ -359,7 +461,8 @@ class AccelerationRegression(AbstractStatisticalModel):
             initial_velocity = Variable(torch.from_numpy(initial_velocity_np).type(self.tensor_scalar_type),
                                         requires_grad=False)
 
-        return template_data, template_points, control_points, impulse_t, initial_velocity
+        return template_data, template_points, control_points, impulse_t, initial_velocity, A, B, C
+
     ####################################################################################################################
     ### Writing methods:
     ####################################################################################################################
@@ -371,8 +474,13 @@ class AccelerationRegression(AbstractStatisticalModel):
     def _write_model_predictions(self, output_dir, dataset=None, write_adjoint_parameters=False):
 
         # Initialize ---------------------------------------------------------------------------------------------------
-        template_data, template_points, control_points, impulse_t, initial_velocity = self._fixed_effects_to_torch_tensors(False)
+        template_data, template_points, control_points, impulse_t, initial_velocity, A, B, C = self._fixed_effects_to_torch_tensors(
+            False)
         target_times = dataset.times[0]
+
+        template_data = self.template.get_data()
+        #baseline_intensities_numpy = template_data['image_intensities']
+        #baseline_intensities = Variable(torch.from_numpy(baseline_intensities_numpy).type(self.tensor_scalar_type), requires_grad=(False))
 
         # Deform -------------------------------------------------------------------------------------------------------
         self.acceleration_path.set_tmin(min(target_times))
@@ -384,8 +492,8 @@ class AccelerationRegression(AbstractStatisticalModel):
         self.acceleration_path.update()
 
         # Write --------------------------------------------------------------------------------------------------------
-        self.acceleration_path.write2(self.name, self.objects_name, self.objects_name_extension, self.template,
-                                     template_data, output_dir, write_adjoint_parameters)
+        self.acceleration_path.write(self.name, self.objects_name, self.objects_name_extension, self.template,
+                                     template_data, A, B, C, output_dir, write_adjoint_parameters)
 
         # Model predictions.
         if dataset is not None:
@@ -397,9 +505,36 @@ class AccelerationRegression(AbstractStatisticalModel):
                     print(name)
                     names.append(name)
                 deformed_points = self.acceleration_path.get_template_points(time)
-                deformed_data = self.template.get_deformed_data(deformed_points, template_data)
+                linear_image_model = {}
+                linear_image_model['image_intensities'] = A * torch.exp(-B * torch.exp(-C * time))
+                deformed_data = self.template.get_deformed_data(deformed_points, linear_image_model)
                 self.template.write(output_dir, names,
                                     {key: value.data.cpu().numpy() for key, value in deformed_data.items()})
+
+        # Write the A, B, and C images
+        A_im = image.Image(self.dimension)
+        A_im.set_intensities(A.data.cpu().numpy())
+        B_im = image.Image(self.dimension)
+        B_im.set_intensities(B.data.cpu().numpy())
+        C_im = image.Image(self.dimension)
+        C_im.set_intensities(C.data.cpu().numpy())
+
+        if (self.dimension == 2):
+            A_im.set_dtype(np.dtype(np.float32))
+            B_im.set_dtype(np.dtype(np.float32))
+            C_im.set_dtype(np.dtype(np.float32))
+            A_im.write(output_dir, self.name + "__A_image.tif", should_rescale=False)
+            B_im.write(output_dir, self.name + "__B_image.tif", should_rescale=False)
+            C_im.write(output_dir, self.name + "__C_image.tif", should_rescale=False)
+        else:
+            A_im.set_dtype(np.dtype(np.float32))
+            B_im.set_dtype(np.dtype(np.float32))
+            C_im.set_dtype(np.dtype(np.float32))
+            A_im.write(output_dir, self.name + "__A_image.nii", should_rescale=False)
+            B_im.write(output_dir, self.name + "__B_image.nii", should_rescale=False)
+            C_im.write(output_dir, self.name + "__C_image.nii", should_rescale=False)
+
+
 
     def _write_model_parameters(self, output_dir):
         # Control points.
@@ -416,3 +551,5 @@ class AccelerationRegression(AbstractStatisticalModel):
             out_name = '%s__EstimatedParameters__Impulse_t_%0.3d.txt' % (self.name, i)
             cur_impulse = impulse_t[i, :, :].data.cpu().numpy()
             write_3D_array(cur_impulse, output_dir, out_name)
+
+

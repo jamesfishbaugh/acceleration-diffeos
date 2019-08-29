@@ -6,6 +6,19 @@ from core import default
 from core.model_tools.deformations.acceleration_integrate import AccelerationIntegrate
 from in_out.array_readers_and_writers import *
 
+from torch.autograd import Variable
+
+import support.kernels as kernel_factory
+from core import default
+from core.models.abstract_statistical_model import AbstractStatisticalModel
+from core.models.model_functions import initialize_control_points, initialize_impulse, initialize_initial_velocity
+from core.observations.deformable_objects.deformable_multi_object import DeformableMultiObject
+from in_out.array_readers_and_writers import *
+from in_out.dataset_functions import create_template_metadata
+from core.observations.deformable_objects import image
+
+from numpy import linalg as LA
+from scipy.ndimage.filters import gaussian_filter
 
 class AccelerationPath:
     """
@@ -166,6 +179,10 @@ class AccelerationPath:
     def write(self, root_name, objects_name, objects_extension, template, template_data, A, B, C,
               output_dir, write_adjoint_parameters=False):
 
+        baseline_intensities_numpy = template_data['image_intensities']
+        baseline_intensities = Variable(torch.from_numpy(baseline_intensities_numpy).type(torch.cuda.FloatTensor),
+                                        requires_grad=(False))
+
         # Core loop ----------------------------------------------------------------------------------------------------
         times = self._get_times()
         for t, time in enumerate(times):
@@ -176,6 +193,34 @@ class AccelerationPath:
                 print(name)
                 names.append(name)
             deformed_points = self.get_template_points(time)
+            linear_image_model = {}
+            linear_image_model['image_intensities'] = A * torch.exp(-B * torch.exp(-C * time))
+            deformed_data = template.get_deformed_data(deformed_points, linear_image_model)
+
+            template.write(output_dir, names, {key: value.detach().cpu().numpy() for key, value in deformed_data.items()})
+
+        for t, time in enumerate(times):
+            names = []
+            for k, (object_name, object_extension) in enumerate(zip(objects_name, objects_extension)):
+                # name = root_name + '__deformation_only__' + object_name + '__tp_' + str(t) + ('__age_%.2f' % time) + object_extension
+                name = '%s__deformation_only__%s__%0.03d%s' % (root_name, object_name, t, object_extension)
+                print(name)
+                names.append(name)
+            deformed_points = self.get_template_points(time)
+            linear_image_model = {}
+            linear_image_model['image_intensities'] = A * torch.exp(-B * torch.exp(-C * times[0]))
+            deformed_data = template.get_deformed_data(deformed_points, linear_image_model)
+
+            template.write(output_dir, names, {key: value.detach().cpu().numpy() for key, value in deformed_data.items()})
+
+        for t, time in enumerate(times):
+            names = []
+            for k, (object_name, object_extension) in enumerate(zip(objects_name, objects_extension)):
+                # name = root_name + '__deformation_only__' + object_name + '__tp_' + str(t) + ('__age_%.2f' % time) + object_extension
+                name = '%s__intensity_only__%s__%0.03d%s' % (root_name, object_name, t, object_extension)
+                print(name)
+                names.append(name)
+            deformed_points = self.get_template_points(times[0])
             linear_image_model = {}
             linear_image_model['image_intensities'] = A * torch.exp(-B * torch.exp(-C * time))
             deformed_data = template.get_deformed_data(deformed_points, linear_image_model)

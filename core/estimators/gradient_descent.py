@@ -13,9 +13,9 @@ from core.estimators.abstract_estimator import AbstractEstimator
 logger = logging.getLogger(__name__)
 
 
-class GradientAscent(AbstractEstimator):
+class GradientDescent(AbstractEstimator):
     """
-    GradientAscent object class.
+    GradientDescent object class.
     An estimator is an algorithm which updates the fixed effects of a statistical model.
 
     """
@@ -36,7 +36,7 @@ class GradientAscent(AbstractEstimator):
                  load_state_file=default.load_state_file, state_file=default.state_file,
                  **kwargs):
 
-        super().__init__(statistical_model=statistical_model, dataset=dataset, name='GradientAscent',
+        super().__init__(statistical_model=statistical_model, dataset=dataset, name='GradientDescent',
                          optimized_log_likelihood=optimized_log_likelihood,
                          max_iterations=max_iterations, convergence_tolerance=convergence_tolerance,
                          print_every_n_iters=print_every_n_iters, save_every_n_iters=save_every_n_iters,
@@ -81,7 +81,7 @@ class GradientAscent(AbstractEstimator):
     def update(self):
 
         """
-        Runs the gradient ascent algorithm and updates the statistical model.
+        Runs the gradient descent algorithm and updates the statistical model.
         """
         super().update()
 
@@ -112,12 +112,13 @@ class GradientAscent(AbstractEstimator):
                                                                   Decimal(str(math.sqrt(np.sum(gradient[key] ** 2)))),
                                                                   key))
 
-                # Try a simple gradient ascent step --------------------------------------------------------------------
-                new_parameters = self._gradient_ascent_step(self.current_parameters, gradient, self.step)
+                # Try a simple gradient descent step --------------------------------------------------------------------
+                new_parameters = self._gradient_descent_step(self.current_parameters, gradient, self.step)
                 new_attachment, new_regularity = self._evaluate_model_fit(new_parameters)
 
-                q = new_attachment + new_regularity - last_log_likelihood
-                if q > 0:
+                q = (new_attachment + new_regularity) - last_log_likelihood
+                # If the step caused the cost function to increase from the previous value
+                if q < 0:
                     found_min = True
                     self.step = {key: value * self.line_search_expand for key, value in self.step.items()}
                     break
@@ -134,7 +135,7 @@ class GradientAscent(AbstractEstimator):
                         local_step = self.step.copy()
                         local_step[key] /= self.line_search_shrink
 
-                        new_parameters_prop[key] = self._gradient_ascent_step(self.current_parameters, gradient,
+                        new_parameters_prop[key] = self._gradient_descent_step(self.current_parameters, gradient,
                                                                               local_step)
                         new_attachment_prop[key], new_regularity_prop[key] = self._evaluate_model_fit(
                             new_parameters_prop[key])
@@ -142,7 +143,7 @@ class GradientAscent(AbstractEstimator):
                         q_prop[key] = new_attachment_prop[key] + new_regularity_prop[key] - last_log_likelihood
 
                     key_max = max(q_prop.keys(), key=(lambda key: q_prop[key]))
-                    if q_prop[key_max] > 0:
+                    if q_prop[key_max] < 0:
                         new_attachment = new_attachment_prop[key_max]
                         new_regularity = new_regularity_prop[key_max]
                         new_parameters = new_parameters_prop[key_max]
@@ -267,18 +268,18 @@ class GradientAscent(AbstractEstimator):
                 mode=self.optimized_log_likelihood, with_grad=with_grad)#, cur_iter=self.current_iteration)
 
         except ValueError as error:
-            print('>> ' + str(error) + ' [ in gradient_ascent ]')
+            print('>> ' + str(error) + ' [ in gradient_descent ]')
             self.statistical_model.clear_memory()
             if with_grad:
-                raise RuntimeError('Failure of the gradient_ascent algorithm: the gradient of the model log-likelihood '
+                raise RuntimeError('Failure of the gradient_descent algorithm: the gradient of the model log-likelihood '
                                    'fails to be computed.', str(error))
             else:
                 return - float('inf'), - float('inf')
 
-    def _gradient_ascent_step(self, parameters, gradient, step):
+    def _gradient_descent_step(self, parameters, gradient, step):
         new_parameters = copy.deepcopy(parameters)
         for key in gradient.keys():
-            new_parameters[key] += gradient[key] * step[key]
+            new_parameters[key] -= gradient[key] * step[key]
         return new_parameters
 
     def _set_parameters(self, parameters):
