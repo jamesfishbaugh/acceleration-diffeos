@@ -15,9 +15,16 @@ The application is called with the command:
 
 * `acceleration_diffeos.py estimate model.xml data_set.xml --p optimization_parameters.xml`
 
-
 where
 
 * `model.xml` contains information about the template (baseline) shape as well as hyper-parameters for the deformation model.
 * `data_set.xml` contains the paths to the input objects which are the observed data.
 * `optimization_parameters.xml` contains optional details about optimization.
+
+**Try an example**
+
+Navigate to the directory `examples/2D/bullseye` and run the command:
+
+`../../../acceleration_diffeos.py estimate model.xml data_set.xml --p optimization_parameters.xml`
+
+which will output the current model every 50 iterations into `examples/2D/bullseye/output/`.
