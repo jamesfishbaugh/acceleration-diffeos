@@ -162,7 +162,7 @@ class AccelerationPath:
     ### Writing methods:
     ####################################################################################################################
 
-    def write2(self, root_name, objects_name, objects_extension, template, template_data, output_dir, write_adjoint_parameters=False):
+    def write(self, root_name, objects_name, objects_extension, template, template_data, output_dir):
 
         # Core loop ----------------------------------------------------------------------------------------------------
         times = self._get_times()
@@ -176,12 +176,11 @@ class AccelerationPath:
             deformed_data = template.get_deformed_data(deformed_points, template_data)
             template.write(output_dir, names, {key: value.detach().cpu().numpy() for key, value in deformed_data.items()})
 
-    def write(self, root_name, objects_name, objects_extension, template, template_data, A, B, C,
+    def write_with_gompertz(self, root_name, objects_name, objects_extension, template, template_data, A, B, C,
               output_dir, write_adjoint_parameters=False):
 
         baseline_intensities_numpy = template_data['image_intensities']
-        baseline_intensities = Variable(torch.from_numpy(baseline_intensities_numpy).type(torch.cuda.FloatTensor),
-                                        requires_grad=(False))
+        baseline_intensities = Variable(torch.from_numpy(baseline_intensities_numpy).type(torch.cuda.FloatTensor), requires_grad=(False))
 
         # Core loop ----------------------------------------------------------------------------------------------------
         times = self._get_times()

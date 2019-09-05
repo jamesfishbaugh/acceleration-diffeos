@@ -24,7 +24,7 @@ class GradientDescent(AbstractEstimator):
     ### Constructor:
     ####################################################################################################################
 
-    def __init__(self, statistical_model, dataset, optimization_method_type='undefined', individual_RER={},
+    def __init__(self, statistical_model, dataset, optimization_method_type='undefined',
                  max_iterations=default.max_iterations, convergence_tolerance=default.convergence_tolerance,
                  print_every_n_iters=default.print_every_n_iters, save_every_n_iters=default.save_every_n_iters,
                  scale_initial_step_size=default.scale_initial_step_size, initial_step_size=default.initial_step_size,
@@ -192,7 +192,7 @@ class GradientDescent(AbstractEstimator):
         """
         print('------------------------------------- Iteration: ' + str(self.current_iteration)
               + ' -------------------------------------')
-        print('Log-likelihood = %.3E \t [ attachment = %.3E ; regularity = %.3E ]' %
+        print('Total cost = %.3E \t [ attachment = %.3E ; regularity = %.3E ]' %
               (Decimal(str(self.current_log_likelihood)),
                Decimal(str(self.current_attachment)),
                Decimal(str(self.current_regularity))))
@@ -201,7 +201,7 @@ class GradientDescent(AbstractEstimator):
         """
         Save the current results.
         """
-        self.statistical_model.write(self.dataset, self.population_RER, self.individual_RER, self.output_dir)
+        self.statistical_model.write(self.dataset, self.output_dir)
         self._dump_state_file()
 
     ####################################################################################################################
@@ -249,8 +249,6 @@ class GradientDescent(AbstractEstimator):
 
     def _get_parameters(self):
         out = self.statistical_model.get_fixed_effects()
-        out.update(self.population_RER)
-        out.update(self.individual_RER)
         assert len(out) == len(self.statistical_model.get_fixed_effects())
         return out
 

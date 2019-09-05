@@ -237,16 +237,6 @@ class XmlParameters:
                     dataset_filenames.append(subject_filenames)
                     visit_ages.append(subject_ages)
 
-                # For scalar input, following leasp model
-                if dataset_xml_level1.tag.lower() == 'group-file':
-                    self.group_file = dataset_xml_level1.text
-
-                if dataset_xml_level1.tag.lower() == 'timepoints-file':
-                    self.timepoints_file = dataset_xml_level1.text
-
-                if dataset_xml_level1.tag.lower() == 'observations-file':
-                    self.observations_file = dataset_xml_level1.text
-
             self.dataset_filenames = dataset_filenames
             self.visit_ages = visit_ages
             self.subject_ids = subject_ids

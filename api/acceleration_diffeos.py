@@ -60,20 +60,20 @@ class AccelerationDiffeos:
                                          model_options={}, estimator_options={}, write_output=True):
 
         # Check and completes the input parameters.
-        template_specifications, model_options, estimator_options = self.further_initialization(
-            'Regression', template_specifications, model_options, dataset_specifications, estimator_options)
+        template_specifications, model_options, estimator_options = self.further_initialization('Regression', template_specifications, model_options,
+                                                                                                dataset_specifications, estimator_options)
 
-        # Instantiate dataset.
+        # Instantiate dataset
         dataset = create_dataset(template_specifications, dimension=model_options['dimension'], **dataset_specifications)
         assert (dataset.is_time_series()), "Cannot estimate an acceleration controlled regression from a non-time-series dataset."
 
-        # Instantiate model.
+        # Instantiate model
         statistical_model = AccelerationRegression(template_specifications, **model_options)
 
-        # Instantiate estimator.
+        # Instantiate estimator
         estimator = self.__instantiate_estimator(statistical_model, dataset, self.output_dir, estimator_options, default=ScipyOptimize)
 
-        # Launch.
+        # Launch
         self.__launch_estimator(estimator, write_output)
 
         return statistical_model
@@ -81,19 +81,17 @@ class AccelerationDiffeos:
     def estimate_acceleration_gompertz_regression(self, template_specifications, dataset_specifications,
                                                   model_options={}, estimator_options={}, write_output=True):
 
-        # Check and completes the input parameters.
-        template_specifications, model_options, estimator_options = self.further_initialization(
-            'Regression', template_specifications, model_options, dataset_specifications, estimator_options)
+        # Check and completes the input parameters
+        template_specifications, model_options, estimator_options = self.further_initialization('Regression', template_specifications, model_options,
+                                                                                                dataset_specifications, estimator_options)
 
-        # Instantiate dataset.
-        dataset = create_dataset(template_specifications, dimension=model_options['dimension'],
-                                 **dataset_specifications)
-        assert (
-            dataset.is_time_series()), "Cannot estimate an acceleration controlled regression from a non-time-series dataset."
+        # Instantiate dataset
+        dataset = create_dataset(template_specifications, dimension=model_options['dimension'], **dataset_specifications)
+        assert (dataset.is_time_series()), "Cannot estimate an acceleration controlled regression from a non-time-series dataset."
 
         print("CALLING V2")
 
-        # Instantiate model.
+        # Instantiate model
         statistical_model = AccelerationGompertzRegressionV2(template_specifications, **model_options)
 
         target_times = dataset.times[0]

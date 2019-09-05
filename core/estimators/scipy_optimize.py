@@ -192,7 +192,7 @@ class ScipyOptimize(AbstractEstimator):
 
         # Print.
         if self.verbose > 0 and not self.current_iteration % self.print_every_n_iters:
-            print('>> Log-likelihood = %.3E \t [ attachment = %.3E ; regularity = %.3E ]' %
+            print('>> Total cost = %.3E \t [ attachment = %.3E ; regularity = %.3E ]' %
                   (Decimal(str(attachment + regularity)),
                    Decimal(str(attachment)),
                    Decimal(str(regularity))))

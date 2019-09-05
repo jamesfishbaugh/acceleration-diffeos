@@ -269,23 +269,21 @@ class AccelerationRegression(AbstractStatisticalModel):
         """
         Convert the fixed_effects into torch tensors.
         """
-        # Template data.
+        # Template data
         template_data = self.fixed_effects['template_data']
         template_data = {key: Variable(torch.from_numpy(value).type(self.tensor_scalar_type),
-                                       requires_grad=(not self.freeze_template and with_grad))
-                         for key, value in template_data.items()}
+                                       requires_grad=(not self.freeze_template and with_grad)) for key, value in template_data.items()}
 
-        # Template points.
+        # Template points
         template_points = self.template.get_points()
         template_points = {key: Variable(torch.from_numpy(value).type(self.tensor_scalar_type),
-                                         requires_grad=(not self.freeze_template and with_grad))
-                           for key, value in template_points.items()}
+                                         requires_grad=(not self.freeze_template and with_grad)) for key, value in template_points.items()}
 
         control_points = self.fixed_effects['control_points']
         control_points = Variable(torch.from_numpy(control_points).type(self.tensor_scalar_type),
                                   requires_grad=(not self.freeze_control_points and with_grad))
 
-        # Impulse.
+        # Impulse
         impulse_t = self.fixed_effects['impulse_t']
         impulse_t = Variable(torch.from_numpy(impulse_t).type(self.tensor_scalar_type), requires_grad=with_grad)
 
@@ -297,23 +295,21 @@ class AccelerationRegression(AbstractStatisticalModel):
             # Now scale to the number of timesteps
             initial_velocity = initial_velocity / self.number_of_time_points
             self.fixed_effects['initial_velocity'] = initial_velocity
-            initial_velocity = Variable(torch.from_numpy(initial_velocity).type(self.tensor_scalar_type),
-                                        requires_grad=with_grad)
+            initial_velocity = Variable(torch.from_numpy(initial_velocity).type(self.tensor_scalar_type), requires_grad=with_grad)
         else:
             initial_velocity_np = np.zeros((self.number_of_control_points, self.dimension))
-            initial_velocity = Variable(torch.from_numpy(initial_velocity_np).type(self.tensor_scalar_type),
-                                        requires_grad=False)
+            initial_velocity = Variable(torch.from_numpy(initial_velocity_np).type(self.tensor_scalar_type), requires_grad=False)
 
         return template_data, template_points, control_points, impulse_t, initial_velocity
     ####################################################################################################################
     ### Writing methods:
     ####################################################################################################################
 
-    def write(self, dataset, output_dir, write_adjoint_parameters=False):
-        self._write_model_predictions(output_dir, dataset, write_adjoint_parameters)
+    def write(self, dataset, output_dir):
+        self._write_model_predictions(output_dir, dataset)
         self._write_model_parameters(output_dir)
 
-    def _write_model_predictions(self, output_dir, dataset=None, write_adjoint_parameters=False):
+    def _write_model_predictions(self, output_dir, dataset=None):
 
         # Initialize ---------------------------------------------------------------------------------------------------
         template_data, template_points, control_points, impulse_t, initial_velocity = self._fixed_effects_to_torch_tensors(False)
@@ -329,10 +325,9 @@ class AccelerationRegression(AbstractStatisticalModel):
         self.acceleration_path.update()
 
         # Write --------------------------------------------------------------------------------------------------------
-        self.acceleration_path.write2(self.name, self.objects_name, self.objects_name_extension, self.template,
-                                     template_data, output_dir, write_adjoint_parameters)
+        self.acceleration_path.write(self.name, self.objects_name, self.objects_name_extension, self.template, template_data, output_dir)
 
-        # Model predictions.
+        # Model predictions
         if dataset is not None:
             for j, time in enumerate(target_times):
                 names = []
@@ -347,7 +342,7 @@ class AccelerationRegression(AbstractStatisticalModel):
                                     {key: value.data.cpu().numpy() for key, value in deformed_data.items()})
 
     def _write_model_parameters(self, output_dir):
-        # Control points.
+        # Control points
         write_2D_array(self.get_control_points(), output_dir, self.name + "__EstimatedParameters__ControlPoints.txt")
 
         # Initial velocity
