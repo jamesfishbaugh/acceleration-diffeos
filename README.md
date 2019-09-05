@@ -13,10 +13,11 @@ This software is built from the source code of **Deformetrica**. It is recommend
 
 The application is called with the command:
 
-* <span style="color:red">acceleration_diffeos.py estimate model.xml data_set.xml --p optimization_parameters.xml</span>
+* `acceleration_diffeos.py estimate model.xml data_set.xml --p optimization_parameters.xml`
+
 
 where
 
-* <span style="color:red">*model.xml*</span> contains information about the template (baseline) shape as well as hyper-parameters for the deformation model.
-* <span style="color:red">*data_set.xml*</span> contains the paths to the input objects which are the observed data.
-* <span style="color:red">*optimization_parameters.xml*</span> contains optional details about optimization.
+* `model.xml` contains information about the template (baseline) shape as well as hyper-parameters for the deformation model.
+* `data_set.xml` contains the paths to the input objects which are the observed data.
+* `optimization_parameters.xml` contains optional details about optimization.
