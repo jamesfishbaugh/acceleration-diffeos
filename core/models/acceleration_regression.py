@@ -57,51 +57,41 @@ class AccelerationRegression(AbstractStatisticalModel):
 
         AbstractStatisticalModel.__init__(self, name='AccelerationRegression')
 
-        # Global-like attributes.
+        # Global-like attributes
         self.dimension = dimension
         self.tensor_scalar_type = tensor_scalar_type
         self.tensor_integer_type = tensor_integer_type
         self.number_of_threads = number_of_threads
 
-        # Declare model structure.
+        # Declare model structure
         self.fixed_effects['template_data'] = None
         self.fixed_effects['control_points'] = None
 
         self.freeze_template = freeze_template
         self.freeze_control_points = freeze_control_points
 
-        # Deformation.
-        self.acceleration_path = AccelerationPath(
-            kernel=kernel_factory.factory(deformation_kernel_type, deformation_kernel_width,
-                                          device=deformation_kernel_device),
-            shoot_kernel_type=shoot_kernel_type, number_of_time_points=number_of_time_points)
+        # Deformation
+        self.acceleration_path = AccelerationPath(kernel=kernel_factory.factory(deformation_kernel_type, deformation_kernel_width,
+                                                  device=deformation_kernel_device), shoot_kernel_type=shoot_kernel_type, number_of_time_points=number_of_time_points)
 
-        # Template.
+        # Template
         (object_list, self.objects_name, self.objects_name_extension,
-         self.objects_noise_variance, self.multi_object_attachment) = create_template_metadata(template_specifications,
-                                                                                               self.dimension)
+         self.objects_noise_variance, self.multi_object_attachment) = create_template_metadata(template_specifications,  self.dimension)
 
         self.template = DeformableMultiObject(object_list)
         self.template.update()
-
-        template_data = self.template.get_data()
 
         self.number_of_objects = len(self.template.object_list)
 
         self.use_sobolev_gradient = use_sobolev_gradient
         self.smoothing_kernel_width = smoothing_kernel_width
         if self.use_sobolev_gradient:
-            self.sobolev_kernel = kernel_factory.factory(deformation_kernel_type, smoothing_kernel_width,
-                                                         device=deformation_kernel_device)
+            self.sobolev_kernel = kernel_factory.factory(deformation_kernel_type, smoothing_kernel_width,  device=deformation_kernel_device)
 
-        self.deformation_attachment_weight = 10
-        self.total_variation_weight = 1
-        self.deformation_regularity_weight = 1
-
-        # Template data.
+        # Template data
         self.fixed_effects['template_data'] = self.template.get_data()
 
-        # Control points.
+        # Control points
         self.fixed_effects['control_points'] = initialize_control_points(initial_control_points, self.template,
                                                                          initial_cp_spacing, deformation_kernel_width,
                                                                          self.dimension, False)
@@ -115,41 +105,9 @@ class AccelerationRegression(AbstractStatisticalModel):
         self.number_of_time_points = number_of_time_points
 
         # Impulse
-        self.fixed_effects['impulse_t'] = initialize_impulse(initial_impulse_t, self.number_of_time_points,
-                                                             self.number_of_control_points, self.dimension)
+        self.fixed_effects['impulse_t'] = initialize_impulse(initial_impulse_t, self.number_of_time_points,  self.number_of_control_points, self.dimension)
         if (self.estimate_initial_velocity):
-            self.fixed_effects['initial_velocity'] = initialize_initial_velocity(initial_velocity,
-                                                                                 self.number_of_control_points,
-                                                                                 self.dimension)
-
-    def initialize_noise_variance(self, dataset):
-        if np.min(self.objects_noise_variance) < 0:
-            template_data, template_points, control_points, impulse_t, initial_velocity = self._fixed_effects_to_torch_tensors(
-                False)
-            target_times = dataset.times[0]
-            target_objects = dataset.deformable_objects[0]
-
-            self.acceleration_path.set_tmin(min(target_times))
-            self.acceleration_path.set_tmax(max(target_times))
-            self.acceleration_path.set_template_points_tmin(template_points)
-            self.acceleration_path.set_control_points_tmin(control_points)
-            self.acceleration_path.set_impulse_t(impulse_t)
-            self.acceleration_path.set_initial_velocity(initial_velocity)
-            self.acceleration_path.update()
-
-            residuals = np.zeros((self.number_of_objects,))
-            for (time, target) in zip(target_times, target_objects):
-                deformed_points = self.acceleration_path.get_template_points(time)
-                deformed_data = self.template.get_deformed_data(deformed_points, template_data)
-                residuals += self.multi_object_attachment.compute_distances(deformed_data, self.template,
-                                                                            target).data.numpy()
-
-            # Initialize the noise variance hyper-parameter as a 1/100th of the initial residual.
-            for k, obj in enumerate(self.objects_name):
-                if self.objects_noise_variance[k] < 0:
-                    nv = 0.01 * residuals[k] / float(len(target_times))
-                    self.objects_noise_variance[k] = nv
-                    print('>> Automatically chosen noise std: %.4f [ %s ]' % (math.sqrt(nv), obj))
+            self.fixed_effects['initial_velocity'] = initialize_initial_velocity(initial_velocity, self.number_of_control_points, self.dimension)
 
     ####################################################################################################################
     ### Encapsulation methods:
@@ -169,7 +127,6 @@ class AccelerationRegression(AbstractStatisticalModel):
 
     def set_control_points(self, cp):
         self.fixed_effects['control_points'] = cp
-        # self.number_of_control_points = len(cp)
 
     # Impulse ----------------------------------------------------------------------------------------------------------
     def get_impulse_t(self):
@@ -215,14 +172,11 @@ class AccelerationRegression(AbstractStatisticalModel):
     ####################################################################################################################
 
     # Compute the functional. Numpy input/outputs.
-    def compute_log_likelihood(self, dataset, population_RER, individual_RER, mode='complete', with_grad=False, cur_iter=None):
+    def compute_log_likelihood(self, dataset, with_grad=False):
         """
         Compute the log-likelihood of the dataset, given parameters fixed_effects and random effects realizations
         population_RER and indRER.
         :param dataset: LongitudinalDataset instance
-        :param fixed_effects: Dictionary of fixed effects.
-        :param population_RER: Dictionary of population random effects realizations.
-        :param indRER: Dictionary of individual random effects realizations.
         :param with_grad: Flag that indicates wether the gradient should be returned as well.
         :return:
         """
@@ -279,8 +233,7 @@ class AccelerationRegression(AbstractStatisticalModel):
     ### Private methods:
     ####################################################################################################################
 
-    def _compute_attachment_and_regularity(self, dataset, template_data, template_points, control_points, impulse_t,
-                                           initial_velocity):
+    def _compute_attachment_and_regularity(self, dataset, template_data, template_points, control_points, impulse_t, initial_velocity):
         """
         Core part of the ComputeLogLikelihood methods. Fully torch.
         """

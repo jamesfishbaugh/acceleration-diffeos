@@ -13,10 +13,10 @@ from core.estimators.gradient_descent import GradientDescent
 from core.estimators.scipy_optimize import ScipyOptimize
 from core.models.acceleration_regression import AccelerationRegression
 from core.models.acceleration_gompertz_regression_v2 import AccelerationGompertzRegressionV2
+from launch import compute_acceleration_flow
 from core.models.acceleration_gompertz_regression import AccelerationGompertzRegression
 from in_out.dataset_functions import create_dataset
 from in_out.deformable_object_reader import DeformableObjectReader
-from support.probability_distributions.multi_scalar_normal_distribution import MultiScalarNormalDistribution
 
 logger = logging.getLogger(__name__)
 
@@ -65,18 +65,14 @@ class AccelerationDiffeos:
             'Regression', template_specifications, model_options, dataset_specifications, estimator_options)
 
         # Instantiate dataset.
-        dataset = create_dataset(template_specifications, dimension=model_options['dimension'],
-                                 **dataset_specifications)
-        assert (
-            dataset.is_time_series()), "Cannot estimate an acceleration controlled regression from a non-time-series dataset."
+        dataset = create_dataset(template_specifications, dimension=model_options['dimension'], **dataset_specifications)
+        assert (dataset.is_time_series()), "Cannot estimate an acceleration controlled regression from a non-time-series dataset."
 
         # Instantiate model.
         statistical_model = AccelerationRegression(template_specifications, **model_options)
-        # statistical_model.initialize_noise_variance(dataset)
 
         # Instantiate estimator.
-        estimator = self.__instantiate_estimator(statistical_model, dataset, self.output_dir, estimator_options,
-                                                 default=ScipyOptimize)
+        estimator = self.__instantiate_estimator(statistical_model, dataset, self.output_dir, estimator_options, default=ScipyOptimize)
 
         # Launch.
         self.__launch_estimator(estimator, write_output)
@@ -100,7 +96,6 @@ class AccelerationDiffeos:
 
         # Instantiate model.
         statistical_model = AccelerationGompertzRegressionV2(template_specifications, **model_options)
-        # statistical_model.initialize_noise_variance(dataset)
 
         target_times = dataset.times[0]
         target_objects = dataset.deformable_objects[0]
@@ -110,8 +105,7 @@ class AccelerationDiffeos:
         # statistical_model.set_B(the_image['image_intensities'])
 
         # Instantiate estimator.
-        estimator = self.__instantiate_estimator(statistical_model, dataset, self.output_dir, estimator_options,
-                                                 default=ScipyOptimize)
+        estimator = self.__instantiate_estimator(statistical_model, dataset, self.output_dir, estimator_options, default=ScipyOptimize)
 
         # Launch.
         self.__launch_estimator(estimator, write_output)
@@ -124,11 +118,10 @@ class AccelerationDiffeos:
         """
 
         # Check and completes the input parameters.
-        template_specifications, model_options, _ = self.further_initialization(
-            'AccelerationFlow', template_specifications, model_options)
+        template_specifications, model_options, _ = self.further_initialization('AccelerationFlow', template_specifications, model_options)
 
-        # Launch.
-        compute_acceleration_flow(template_specifications, output_dir=self.output_dir, **model_options)
+        # Launch
+        #compute_acceleration_flow(template_specifications, output_dir=self.output_dir, **model_options)
 
     ####################################################################################################################
     # Auxiliary methods.
