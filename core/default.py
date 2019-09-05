@@ -58,6 +58,9 @@ downsampling_factor = 1
 estimate_initial_velocity = True
 initial_velocity_weight = 1.0
 
+data_weight = 1.0
+regularity_weight = 1.0
+
 dense_mode = False
 use_cuda = False
 _cuda_is_used = False   # true if at least one operation will use CUDA.

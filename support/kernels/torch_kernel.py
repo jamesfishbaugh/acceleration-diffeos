@@ -28,8 +28,6 @@ class TorchKernel(AbstractKernel):
         elif device.lower() == 'gpu':
             device = 'cuda'
 
-        print("Creating torch kernel")
-
         super().__init__('torch', kernel_width, device.lower())
 
     ####################################################################################################################

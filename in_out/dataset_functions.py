@@ -205,8 +205,6 @@ def create_template_metadata(template_specifications, dimension=None):
         if object_type == 'image' and 'downsampling_factor' in list(object.keys()):
             objects_list[-1].downsampling_factor = object['downsampling_factor']
 
-    print(objects_norm_kernels)
-
     multi_object_attachment = MultiObjectAttachment(objects_norm, objects_norm_kernels)
 
     return objects_list, objects_name, objects_name_extension, objects_noise_variance, multi_object_attachment

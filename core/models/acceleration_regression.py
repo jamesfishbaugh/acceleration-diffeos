@@ -45,6 +45,8 @@ class AccelerationRegression(AbstractStatisticalModel):
                  smoothing_kernel_width=default.smoothing_kernel_width,
                  estimate_initial_velocity=default.estimate_initial_velocity,
                  initial_velocity_weight=default.initial_velocity_weight,
+                 regularity_weight = default.regularity_weight,
+                 data_weight = default.data_weight,
 
                  initial_control_points=default.initial_control_points,
                  freeze_control_points=default.freeze_control_points,
@@ -67,8 +69,6 @@ class AccelerationRegression(AbstractStatisticalModel):
 
         self.freeze_template = freeze_template
         self.freeze_control_points = freeze_control_points
-
-        print(number_of_time_points)
 
         # Deformation.
         self.acceleration_path = AccelerationPath(
@@ -108,6 +108,8 @@ class AccelerationRegression(AbstractStatisticalModel):
 
         self.estimate_initial_velocity = estimate_initial_velocity
         self.initial_velocity_weight = initial_velocity_weight
+        self.regularity_weight = regularity_weight
+        self.data_weight = data_weight
 
         self.number_of_control_points = len(self.fixed_effects['control_points'])
         self.number_of_time_points = number_of_time_points
@@ -213,8 +215,7 @@ class AccelerationRegression(AbstractStatisticalModel):
     ####################################################################################################################
 
     # Compute the functional. Numpy input/outputs.
-    def compute_log_likelihood(self, dataset, population_RER, individual_RER, mode='complete', with_grad=False,
-                               cur_iter=None):
+    def compute_log_likelihood(self, dataset, population_RER, individual_RER, mode='complete', with_grad=False, cur_iter=None):
         """
         Compute the log-likelihood of the dataset, given parameters fixed_effects and random effects realizations
         population_RER and indRER.
@@ -229,15 +230,13 @@ class AccelerationRegression(AbstractStatisticalModel):
         template_data, template_points, control_points, impulse_t, initial_velocity = self._fixed_effects_to_torch_tensors(with_grad)
 
         # Deform -------------------------------------------------------------------------------------------------------
-        deformation_attachment, regularity, velocity_regularity = self._compute_attachment_and_regularity(
-            dataset, template_data, template_points, control_points, impulse_t, initial_velocity)
+        data_attachment, regularity, velocity_regularity = self._compute_attachment_and_regularity(dataset, template_data, template_points,
+                                                                                                   control_points, impulse_t, initial_velocity)
 
         # Compute gradient if needed -----------------------------------------------------------------------------------
         if with_grad:
 
-            total = self.initial_velocity_weight * velocity_regularity + \
-                    self.deformation_regularity_weight * regularity + \
-                    self.deformation_attachment_weight * deformation_attachment
+            total = self.initial_velocity_weight*velocity_regularity + self.regularity_weight*regularity + self.data_weight*data_attachment
             total.backward()
 
             gradient = {}
@@ -268,15 +267,13 @@ class AccelerationRegression(AbstractStatisticalModel):
             # Convert the gradient back to numpy.
             gradient = {key: value.data.cpu().numpy() for key, value in gradient.items()}
 
-            return self.deformation_attachment_weight * deformation_attachment.detach().cpu().numpy(), \
-                   self.deformation_regularity_weight * regularity.detach().cpu().numpy() + \
-                   self.initial_velocity_weight * velocity_regularity.detach().cpu().numpy(), gradient
+            return self.data_weight*data_attachment.detach().cpu().numpy(), \
+                   self.regularity_weight*regularity.detach().cpu().numpy() + self.initial_velocity_weight*velocity_regularity.detach().cpu().numpy(), gradient
 
         else:
 
-            return self.deformation_attachment_weight * deformation_attachment.detach().cpu().numpy(), \
-                   self.deformation_regularity_weight * regularity.detach().cpu().numpy() + \
-                   self.initial_velocity_weight * velocity_regularity.detach().cpu().numpy()
+            return self.data_weight * data_attachment.detach().cpu().numpy(), \
+                   self.regularity_weight * regularity.detach().cpu().numpy() + self.initial_velocity_weight * velocity_regularity.detach().cpu().numpy()
 
     ####################################################################################################################
     ### Private methods:
@@ -301,20 +298,21 @@ class AccelerationRegression(AbstractStatisticalModel):
         self.acceleration_path.set_initial_velocity(initial_velocity)
         self.acceleration_path.update()
 
-        deformation_attachment = 0.
+        deformation_noise_variance = np.zeros(len(self.objects_noise_variance))
+        for i in range(0, len(deformation_noise_variance)):
+            self.objects_noise_variance[i] = 1.0
+
+        data_attachment = 0.0
         for j, (time, obj) in enumerate(zip(target_times, target_objects)):
             deformed_points = self.acceleration_path.get_template_points(time)
             deformed_data = self.template.get_deformed_data(deformed_points, template_data)
 
-            deformation_attachment -= self.multi_object_attachment.compute_weighted_distance(deformed_data,
-                                                                                             self.template, obj,
-                                                                                             self.objects_noise_variance)
+            data_attachment += self.multi_object_attachment.compute_weighted_distance(deformed_data, self.template, obj, self.objects_noise_variance)
 
-        regularity = - self.acceleration_path.get_norm_squared()
+        regularity = self.acceleration_path.get_norm_squared()
+        velocity_regularity = self.acceleration_path.get_velocity_norm()
 
-        velocity_regularity = - self.acceleration_path.get_velocity_norm()
-
-        return deformation_attachment, regularity, velocity_regularity
+        return data_attachment, regularity, velocity_regularity
 
     ####################################################################################################################
     ### Private utility methods:

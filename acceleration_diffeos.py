@@ -6,12 +6,9 @@ import logging
 import os
 
 import api
-from __init__ import __version__
 from core import default
 from core.default import logger_format
 from in_out.xml_parameters import XmlParameters
-from launch.estimate_longitudinal_metric_model import estimate_longitudinal_metric_model
-from launch.estimate_longitudinal_metric_registration import estimate_longitudinal_metric_registration
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +27,7 @@ def main():
                                help='set output verbosity')
 
     # main parser
-    description = 'Statistical analysis of 2D and 3D shape data. ' + os.linesep + os.linesep + 'version ' + __version__
+    description = 'Statistical analysis of 2D and 3D shape data.'
     parser = argparse.ArgumentParser(prog='accelerationdiffeos', description=description, formatter_class=argparse.RawTextHelpFormatter)
     subparsers = parser.add_subparsers(title='command', dest='command')
     subparsers.required = True  # make 'command' mandatory
@@ -94,50 +91,7 @@ def main():
                                      args.parameters, output_dir)
 
         # logger.debug('xml_parameters.tensor_scalar_type=' + str(xml_parameters.tensor_scalar_type))
-
-        if xml_parameters.model_type == 'Registration'.lower():
-            acceleration_diffeos.estimate_registration(
-                xml_parameters.template_specifications,
-                get_dataset_specifications(xml_parameters),
-                estimator_options=get_estimator_options(xml_parameters),
-                model_options=get_model_options(xml_parameters))
-
-        elif xml_parameters.model_type == 'DeterministicAtlas'.lower():
-            acceleration_diffeos.estimate_deterministic_atlas(
-                xml_parameters.template_specifications,
-                get_dataset_specifications(xml_parameters),
-                estimator_options=get_estimator_options(xml_parameters),
-                model_options=get_model_options(xml_parameters))
-
-        elif xml_parameters.model_type == 'BayesianAtlas'.lower():
-            acceleration_diffeos.estimate_bayesian_atlas(
-                xml_parameters.template_specifications,
-                get_dataset_specifications(xml_parameters),
-                estimator_options=get_estimator_options(xml_parameters),
-                model_options=get_model_options(xml_parameters))
-
-        elif xml_parameters.model_type == 'PrincipalGeodesicAnalysis'.lower():
-            acceleration_diffeos.estimate_principal_geodesic_analysis(
-                xml_parameters.template_specifications,
-                get_dataset_specifications(xml_parameters),
-                estimator_options=get_estimator_options(xml_parameters),
-                model_options=get_model_options(xml_parameters))
-
-        elif xml_parameters.model_type == 'AffineAtlas'.lower():
-            acceleration_diffeos.estimate_affine_atlas(
-                xml_parameters.template_specifications,
-                get_dataset_specifications(xml_parameters),
-                estimator_options=get_estimator_options(xml_parameters),
-                model_options=get_model_options(xml_parameters))
-
-        elif xml_parameters.model_type == 'Regression'.lower():
-            acceleration_diffeos.estimate_geodesic_regression(
-                xml_parameters.template_specifications,
-                get_dataset_specifications(xml_parameters),
-                estimator_options=get_estimator_options(xml_parameters),
-                model_options=get_model_options(xml_parameters))
-                
-        elif xml_parameters.model_type == 'AccelerationRegression'.lower():
+        if xml_parameters.model_type == 'AccelerationRegression'.lower():
             acceleration_diffeos.estimate_acceleration_regression(
                 xml_parameters.template_specifications,
                 get_dataset_specifications(xml_parameters),
@@ -152,40 +106,10 @@ def main():
                 estimator_options=get_estimator_options(xml_parameters),
                 model_options=get_model_options(xml_parameters))
 
-        elif xml_parameters.model_type == 'LongitudinalAtlas'.lower():
-            acceleration_diffeos.estimate_longitudinal_atlas(
-                xml_parameters.template_specifications,
-                get_dataset_specifications(xml_parameters),
-                estimator_options=get_estimator_options(xml_parameters),
-                model_options=get_model_options(xml_parameters))
-
-        elif xml_parameters.model_type == 'LongitudinalRegistration'.lower():
-            acceleration_diffeos.estimate_longitudinal_registration(
-                xml_parameters.template_specifications,
-                get_dataset_specifications(xml_parameters),
-                estimator_options=get_estimator_options(xml_parameters),
-                model_options=get_model_options(xml_parameters))
-
-        elif xml_parameters.model_type == 'Shooting'.lower():
-            acceleration_diffeos.compute_shooting(
-                xml_parameters.template_specifications,
-                model_options=get_model_options(xml_parameters))
-                
         elif xml_parameters.model_type == 'AccelerationFlow'.lower():
             acceleration_diffeos.compute_acceleration_flow(
                 xml_parameters.template_specifications,
                 model_options=get_model_options(xml_parameters))
-
-        elif xml_parameters.model_type == 'ParallelTransport'.lower():
-            acceleration_diffeos.compute_parallel_transport(
-                xml_parameters.template_specifications,
-                model_options=get_model_options(xml_parameters))
-
-        elif xml_parameters.model_type == 'LongitudinalMetricLearning'.lower():
-            estimate_longitudinal_metric_model(xml_parameters)
-
-        elif xml_parameters.model_type == 'LongitudinalMetricRegistration'.lower():
-            estimate_longitudinal_metric_registration(xml_parameters)
 
         else:
             raise RuntimeError(
@@ -216,16 +140,6 @@ def get_estimator_options(xml_parameters):
         options['freeze_template'] = xml_parameters.freeze_template
         options['max_line_search_iterations'] = xml_parameters.max_line_search_iterations
         options['optimized_log_likelihood'] = xml_parameters.optimized_log_likelihood
-
-    elif xml_parameters.optimization_method_type.lower() == 'McmcSaem'.lower():
-        options['sample_every_n_mcmc_iters'] = xml_parameters.sample_every_n_mcmc_iters
-        options['sampler'] = 'SrwMhwg'.lower()
-        # Options for the gradient-based estimator.
-        options['scale_initial_step_size'] = xml_parameters.scale_initial_step_size
-        options['initial_step_size'] = xml_parameters.initial_step_size
-        options['max_line_search_iterations'] = xml_parameters.max_line_search_iterations
-        options['line_search_shrink'] = xml_parameters.line_search_shrink
-        options['line_search_expand'] = xml_parameters.line_search_expand
 
     # common options
     options['optimization_method_type'] = xml_parameters.optimization_method_type.lower()
@@ -266,55 +180,18 @@ def get_model_options(xml_parameters):
         'downsampling_factor': xml_parameters.downsampling_factor,
         'dimension': xml_parameters.dimension,
         'estimate_initial_velocity' : xml_parameters.estimate_initial_velocity,
-        'initial_velocity_weight': xml_parameters.initial_velocity_weight
+        'initial_velocity_weight': xml_parameters.initial_velocity_weight,
+        'regularity_weight': xml_parameters.regularity_weight,
+        'data-weight': xml_parameters.data_weight
     }
 
-    if xml_parameters.model_type.lower() in ['LongitudinalAtlas'.lower(), 'LongitudinalRegistration'.lower()]:
-        options['t0'] = xml_parameters.t0
-        options['number_of_sources'] = xml_parameters.number_of_sources
-        options['initial_modulation_matrix'] = xml_parameters.initial_modulation_matrix
-        options['initial_time_shift_variance'] = xml_parameters.initial_time_shift_variance
-        options['initial_acceleration_mean'] = xml_parameters.initial_acceleration_mean
-        options['initial_acceleration_variance'] = xml_parameters.initial_acceleration_variance
-        options['initial_onset_ages'] = xml_parameters.initial_onset_ages
-        options['initial_accelerations'] = xml_parameters.initial_accelerations
-        options['initial_sources'] = xml_parameters.initial_sources
-        options['freeze_modulation_matrix'] = xml_parameters.freeze_modulation_matrix
-        options['freeze_reference_time'] = xml_parameters.freeze_reference_time
-        options['freeze_time_shift_variance'] = xml_parameters.freeze_time_shift_variance
-        options['freeze_acceleration_variance'] = xml_parameters.freeze_acceleration_variance
-        options['freeze_noise_variance'] = xml_parameters.freeze_noise_variance
-
-    elif xml_parameters.model_type.lower() == 'PrincipalGeodesicAnalysis'.lower():
-        options['initial_latent_positions'] = xml_parameters.initial_sources
-        options['latent_space_dimension'] = xml_parameters.latent_space_dimension
-        options['initial_principal_directions'] = xml_parameters.initial_modulation_matrix
-
-    elif xml_parameters.model_type.lower() == 'Regression'.lower():
-        options['t0'] = xml_parameters.t0
-        options['tmin'] = xml_parameters.tmin
-        options['tmax'] = xml_parameters.tmax
-        
-    elif xml_parameters.model_type.lower() == 'AccelerationRegression'.lower():
+    if xml_parameters.model_type.lower() == 'AccelerationRegression'.lower():
         options['tmin'] = xml_parameters.tmin
         options['tmax'] = xml_parameters.tmax
 
     elif xml_parameters.model_type.lower() == 'AccelerationFlow'.lower():
         options['tmin'] = xml_parameters.tmin
         options['tmax'] = xml_parameters.tmax
-
-    elif xml_parameters.model_type.lower() == 'Shooting'.lower():
-        options['t0'] = xml_parameters.t0
-        options['tmin'] = xml_parameters.tmin
-        options['tmax'] = xml_parameters.tmax
-
-
-    elif xml_parameters.model_type.lower() == 'ParallelTransport'.lower():
-        options['t0'] = xml_parameters.t0
-        options['tmin'] = xml_parameters.tmin
-        options['tmax'] = xml_parameters.tmax
-        options['initial_momenta_to_transport'] = xml_parameters.initial_momenta_to_transport
-        options['initial_control_points_to_transport'] = xml_parameters.initial_control_points_to_transport
 
     # logger.debug(options)
     return options

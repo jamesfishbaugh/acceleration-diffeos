@@ -99,7 +99,6 @@ class XmlParameters:
         
         self.initial_velocity = default.initial_velocity
         self.impulse_t = default.impulse_t
-        self.use_intensity_model = False
         
         self.initial_modulation_matrix = default.initial_modulation_matrix
         self.initial_time_shift_variance = default.initial_time_shift_variance
@@ -117,7 +116,10 @@ class XmlParameters:
         self.onset_age_proposal_std = default.onset_age_proposal_std
         self.acceleration_proposal_std = default.acceleration_proposal_std
         self.sources_proposal_std = default.sources_proposal_std
-        
+
+        self.data_weight = default.data_weight
+        self.regularity_weight = default.regularity_weight
+
         self.estimate_initial_velocity = default.estimate_initial_velocity
         self.initial_velocity_weight = default.initial_velocity_weight
 
@@ -255,6 +257,8 @@ class XmlParameters:
                                         self._keops_is_used = True
                             elif model_xml_level3.tag.lower() == 'kernel-device':
                                 template_object['kernel_device'] = model_xml_level3.text
+                            elif model_xml_level3.tag.lower() == 'data-weight':
+                                template_object['data_weight'] = float(model_xml_level3.text)
                             elif model_xml_level3.tag.lower() == 'noise-std':
                                 template_object['noise_std'] = float(model_xml_level3.text)
                             elif model_xml_level3.tag.lower() == 'filename':
@@ -296,6 +300,10 @@ class XmlParameters:
                         self.deformation_kernel_device = model_xml_level2.text
                     elif model_xml_level2.tag.lower() == 'number-of-timepoints':
                         self.number_of_time_points = int(model_xml_level2.text)
+                    elif model_xml_level2.tag.lower() == 'regularity-weight':
+                        self.regularity_weight = float(model_xml_level2.text)
+                    elif model_xml_level2.tag.lower() == 'initial-velocity-weight':
+                        self.initial_velocity_weight = float(model_xml_level2.text)
                     elif model_xml_level2.tag.lower() == 'number-of-interpolation-points':
                         self.number_of_interpolation_points = int(model_xml_level2.text)
                     elif model_xml_level2.tag.lower() == 'concentration-of-timepoints':
@@ -410,8 +418,6 @@ class XmlParameters:
                 self.freeze_template = self._on_off_to_bool(optimization_parameters_xml_level1.text)
             elif optimization_parameters_xml_level1.tag.lower() == 'freeze-control-points':
                 self.freeze_control_points = self._on_off_to_bool(optimization_parameters_xml_level1.text)
-            elif optimization_parameters_xml_level1.tag.lower() == 'use-intensity-model':
-                self.use_intensity_model = self._on_off_to_bool(optimization_parameters_xml_level1.text)
             elif optimization_parameters_xml_level1.tag.lower() == 'use-cuda':
                 self.use_cuda = self._on_off_to_bool(optimization_parameters_xml_level1.text)
                 if self.use_cuda:
@@ -463,10 +469,6 @@ class XmlParameters:
                 self.gradient_based_estimator = optimization_parameters_xml_level1.text
             elif optimization_parameters_xml_level1.tag.lower() == 'estimate-initial-velocity':
                 self.estimate_initial_velocity = self._on_off_to_bool(optimization_parameters_xml_level1.text)
-            elif optimization_parameters_xml_level1.tag.lower() == 'initial-velocity-weight':
-                self.initial_velocity_weight = float(optimization_parameters_xml_level1.text)
-                
-            
 
             else:
                 msg = 'Unknown entry while parsing the optimization_parameters xml: ' \

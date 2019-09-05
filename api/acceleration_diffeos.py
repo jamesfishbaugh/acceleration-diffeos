@@ -10,7 +10,6 @@ from core import default
 from core.default import logger_format
 from core.estimators.gradient_ascent import GradientAscent
 from core.estimators.gradient_descent import GradientDescent
-from core.estimators.mcmc_saem import McmcSaem
 from core.estimators.scipy_optimize import ScipyOptimize
 from core.models.acceleration_regression import AccelerationRegression
 from core.models.acceleration_gompertz_regression_v2 import AccelerationGompertzRegressionV2

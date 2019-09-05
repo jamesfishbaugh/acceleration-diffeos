@@ -48,6 +48,8 @@ class AccelerationGompertzRegressionV2(AbstractStatisticalModel):
                  smoothing_kernel_width=default.smoothing_kernel_width,
                  estimate_initial_velocity=default.estimate_initial_velocity,
                  initial_velocity_weight=default.initial_velocity_weight,
+                 regularity_weight=default.regularity_weight,
+                 data_weight=default.data_weight,
 
                  initial_control_points=default.initial_control_points,
                  freeze_control_points=default.freeze_control_points,
@@ -111,6 +113,12 @@ class AccelerationGompertzRegressionV2(AbstractStatisticalModel):
 
         self.estimate_initial_velocity = estimate_initial_velocity
         self.initial_velocity_weight = initial_velocity_weight
+        self.regularity_weight = regularity_weight
+        self.data_weight = data_weight
+
+        print(self.data_weight)
+        print(self.regularity_weight)
+        quit()
 
         self.number_of_control_points = len(self.fixed_effects['control_points'])
         self.number_of_time_points = number_of_time_points
@@ -247,8 +255,7 @@ class AccelerationGompertzRegressionV2(AbstractStatisticalModel):
     ####################################################################################################################
 
     # Compute the functional. Numpy input/outputs.
-    def compute_log_likelihood(self, dataset, population_RER, individual_RER, mode='complete', with_grad=False,
-                               cur_iter=None):
+    def compute_log_likelihood(self, dataset, population_RER, individual_RER, mode='complete', with_grad=False, cur_iter=None):
         """
         Compute the log-likelihood of the dataset, given parameters fixed_effects and random effects realizations
         population_RER and indRER.
@@ -344,26 +351,11 @@ class AccelerationGompertzRegressionV2(AbstractStatisticalModel):
 
         deformation_noise_variance = np.zeros(len(self.objects_noise_variance))
         for i in range(0, len(deformation_noise_variance)):
-            deformation_noise_variance[i] = 1 #self.objects_noise_variance[i]*10
+            deformation_noise_variance[i] = 0.01 #self.objects_noise_variance[i]*10
 
-        #cuda0 = torch.device('cuda:0')
-        #total_variation = torch.zeros([1], dtype=torch.float, requires_grad=True, device=cuda0)
-
-        #total_variation_np = np.array([0])
-        #total_variation = Variable(torch.from_numpy(total_variation_np).type(self.tensor_scalar_type), requires_grad=True)
-
-
-        #intensity_weight = 100
-        data_weight = 1
-        regularity_weight = 1
         data_attachment = 0
 
-        template_data = self.template.get_data()
-        #baseline_intensities_numpy = template_data['image_intensities']
-        #baseline_intensities = Variable(torch.from_numpy(baseline_intensities_numpy).type(self.tensor_scalar_type),
-        #                                requires_grad=False)
 
-        total_variation = 0.
         for j, (time, obj) in enumerate(zip(target_times, target_objects)):
             deformed_points = self.acceleration_path.get_template_points(time)
 
@@ -371,11 +363,10 @@ class AccelerationGompertzRegressionV2(AbstractStatisticalModel):
             image_intensity_model['image_intensities'] = A * torch.exp(-B * torch.exp(-C * time))
 
             deformed_data_withitensity = self.template.get_deformed_data(deformed_points, image_intensity_model)
-            data_attachment -= self.multi_object_attachment.compute_weighted_distance(deformed_data_withitensity, self.template, obj,
+            data_attachment += self.multi_object_attachment.compute_weighted_distance(deformed_data_withitensity, self.template, obj,
                                                                                            self.objects_noise_variance)
 
-
-
+        total_variation = 0.
         if (self.dimension == 2):
             total_var_weight = 0.1
             # Compute total variation norm
@@ -384,22 +375,16 @@ class AccelerationGompertzRegressionV2(AbstractStatisticalModel):
             height, width = image_intensity_model['image_intensities'].size()
             dy = torch.abs(image_intensity_model['image_intensities'][-1:, :] - image_intensity_model['image_intensities'][:-1, :])
             error = torch.norm(dy, 1)
-            total_variation = (-(error / height)*total_var_weight)
+            total_variation = ((error / height)*total_var_weight)
 
 
+        print(self.regularity_weight)
+        quit()
+        regularity = self.acceleration_path.get_norm_squared() * self.regularity_weight
 
-        regularity = -self.acceleration_path.get_norm_squared() * regularity_weight
+        velocity_regularity = self.acceleration_path.get_velocity_norm()
 
-        velocity_regularity = -self.acceleration_path.get_velocity_norm()
-
-        data_attachment = data_attachment * data_weight
-
-
-        # print(deformation_attachment)
-        # print(intensity_attachment)
-        # print(regularity)
-        # print(velocity_regularity)
-        # print(total_variation)
+        data_attachment = data_attachment * self.data_weight
 
         return data_attachment, regularity, velocity_regularity, total_variation
 
