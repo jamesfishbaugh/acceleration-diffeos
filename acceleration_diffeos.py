@@ -133,13 +133,11 @@ def get_estimator_options(xml_parameters):
         options['line_search_shrink'] = xml_parameters.line_search_shrink
         options['line_search_expand'] = xml_parameters.line_search_expand
         options['max_line_search_iterations'] = xml_parameters.max_line_search_iterations
-        options['optimized_log_likelihood'] = xml_parameters.optimized_log_likelihood
 
     elif xml_parameters.optimization_method_type.lower() == 'ScipyLBFGS'.lower():
         options['memory_length'] = xml_parameters.memory_length
         options['freeze_template'] = xml_parameters.freeze_template
         options['max_line_search_iterations'] = xml_parameters.max_line_search_iterations
-        options['optimized_log_likelihood'] = xml_parameters.optimized_log_likelihood
 
     # common options
     options['optimization_method_type'] = xml_parameters.optimization_method_type.lower()
@@ -161,22 +159,17 @@ def get_model_options(xml_parameters):
         'deformation_kernel_type': xml_parameters.deformation_kernel_type,
         'deformation_kernel_width': xml_parameters.deformation_kernel_width,
         'deformation_kernel_device': xml_parameters.deformation_kernel_device,
-        'number_of_time_points': xml_parameters.number_of_time_points,
-        'concentration_of_time_points': xml_parameters.concentration_of_time_points,
         'use_rk2_for_shoot': xml_parameters.use_rk2_for_shoot,
         'use_rk2_for_flow': xml_parameters.use_rk2_for_flow,
         'freeze_template': xml_parameters.freeze_template,
         'freeze_control_points': xml_parameters.freeze_control_points,
-        'freeze_momenta': xml_parameters.freeze_momenta,
         'use_sobolev_gradient': xml_parameters.use_sobolev_gradient,
         'sobolev_kernel_width_ratio': xml_parameters.sobolev_kernel_width_ratio,
         'initial_control_points': xml_parameters.initial_control_points,
         'initial_cp_spacing': xml_parameters.initial_cp_spacing,
-        'initial_momenta': xml_parameters.initial_momenta,
         'initial_velocity': xml_parameters.initial_velocity,
         'impulse_t': xml_parameters.impulse_t,
         'dense_mode': xml_parameters.dense_mode,
-        'number_of_threads': xml_parameters.number_of_threads,
         'downsampling_factor': xml_parameters.downsampling_factor,
         'dimension': xml_parameters.dimension,
         'estimate_initial_velocity' : xml_parameters.estimate_initial_velocity,

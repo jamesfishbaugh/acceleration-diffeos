@@ -23,14 +23,12 @@ class MultiObjectAttachment:
     ### Public methods:
     ####################################################################################################################
 
-    def compute_weighted_distance(self, data, multi_obj1, multi_obj2, inverse_weights):
+    def compute_weighted_distance(self, data, multi_obj1, multi_obj2):
         """
         Takes two multiobjects and their new point positions to compute the distances
         """
         distances = self.compute_distances(data, multi_obj1, multi_obj2)
-        assert distances.size()[0] == len(inverse_weights)
-        inverse_weights_torch = torch.from_numpy(np.array(inverse_weights)).type(list(data.values())[0].type())
-        return torch.sum(distances / inverse_weights_torch)
+        return torch.sum(distances)
 
     def compute_distances(self, data, multi_obj1, multi_obj2):
         """

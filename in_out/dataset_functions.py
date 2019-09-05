@@ -181,24 +181,18 @@ def create_template_metadata(template_specifications, dimension=None):
         objects_name.append(object_id)
         objects_name_extension.append(extension)
 
-        if object['noise_std'] < 0:
-            objects_noise_variance.append(-1.0)
-        else:
-            objects_noise_variance.append(object['noise_std'] ** 2)
-
         object_norm = _get_norm_for_object(object, object_id)
 
         objects_norm.append(object_norm)
 
         if object_norm in ['current', 'pointcloud', 'varifold']:
-            #print('We in here creating a kernel')
-            #print(object)
+
             objects_norm_kernels.append(kernel_factory.factory(
                 'torch',
                 object['kernel_width'],
                 device=object['kernel_device'] if 'kernel_device' in object else default.deformation_kernel_device))
         else:
-            #print('NO KERNEL??')
+
             objects_norm_kernels.append(kernel_factory.factory(kernel_factory.Type.NO_KERNEL))
 
         # Optional grid downsampling parameter for image data.
@@ -207,7 +201,7 @@ def create_template_metadata(template_specifications, dimension=None):
 
     multi_object_attachment = MultiObjectAttachment(objects_norm, objects_norm_kernels)
 
-    return objects_list, objects_name, objects_name_extension, objects_noise_variance, multi_object_attachment
+    return objects_list, objects_name, objects_name_extension, multi_object_attachment
 
 
 def compute_noise_dimension(template, multi_object_attachment, dimension, objects_name=None):

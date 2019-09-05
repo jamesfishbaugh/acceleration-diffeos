@@ -75,8 +75,7 @@ class AccelerationRegression(AbstractStatisticalModel):
                                                   device=deformation_kernel_device), shoot_kernel_type=shoot_kernel_type, number_of_time_points=number_of_time_points)
 
         # Template
-        (object_list, self.objects_name, self.objects_name_extension,
-         self.objects_noise_variance, self.multi_object_attachment) = create_template_metadata(template_specifications,  self.dimension)
+        (object_list, self.objects_name, self.objects_name_extension,  self.multi_object_attachment) = create_template_metadata(template_specifications,  self.dimension)
 
         self.template = DeformableMultiObject(object_list)
         self.template.update()
@@ -251,16 +250,12 @@ class AccelerationRegression(AbstractStatisticalModel):
         self.acceleration_path.set_initial_velocity(initial_velocity)
         self.acceleration_path.update()
 
-        deformation_noise_variance = np.zeros(len(self.objects_noise_variance))
-        for i in range(0, len(deformation_noise_variance)):
-            self.objects_noise_variance[i] = 1.0
-
         data_attachment = 0.0
         for j, (time, obj) in enumerate(zip(target_times, target_objects)):
             deformed_points = self.acceleration_path.get_template_points(time)
             deformed_data = self.template.get_deformed_data(deformed_points, template_data)
 
-            data_attachment += self.multi_object_attachment.compute_weighted_distance(deformed_data, self.template, obj, self.objects_noise_variance)
+            data_attachment += self.multi_object_attachment.compute_weighted_distance(deformed_data, self.template, obj)
 
         regularity = self.acceleration_path.get_norm_squared()
         velocity_regularity = self.acceleration_path.get_velocity_norm()
