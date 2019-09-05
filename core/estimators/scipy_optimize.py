@@ -22,8 +22,7 @@ class ScipyOptimize(AbstractEstimator):
     ### Constructor:
     ####################################################################################################################
 
-    def __init__(self, statistical_model, dataset, optimization_method_type='undefined', individual_RER={},
-                 optimized_log_likelihood=default.optimized_log_likelihood,
+    def __init__(self, statistical_model, dataset, optimization_method_type='undefined',
                  max_iterations=default.max_iterations, convergence_tolerance=default.convergence_tolerance,
                  print_every_n_iters=default.print_every_n_iters, save_every_n_iters=default.save_every_n_iters,
                  memory_length=default.memory_length,
@@ -35,10 +34,8 @@ class ScipyOptimize(AbstractEstimator):
                  **kwargs):
 
         super().__init__(statistical_model=statistical_model, dataset=dataset, name='ScipyOptimize', verbose=verbose,
-                         optimized_log_likelihood=optimized_log_likelihood,
                          max_iterations=max_iterations, convergence_tolerance=convergence_tolerance,
                          print_every_n_iters=print_every_n_iters, save_every_n_iters=save_every_n_iters,
-                         individual_RER=individual_RER,
                          callback=callback, state_file=state_file, output_dir=output_dir)
 
         assert optimization_method_type.lower() in ['ScipyLBFGS'.lower(), 'ScipyPowell'.lower()]
@@ -137,8 +134,7 @@ class ScipyOptimize(AbstractEstimator):
 
         if self.method == 'Powell':
             try:
-                attachment, regularity = self.statistical_model.compute_log_likelihood(
-                    self.dataset, self.population_RER, self.individual_RER, with_grad=False)
+                attachment, regularity = self.statistical_model.compute_log_likelihood(self.dataset, with_grad=False)
                 print('>> Log-likelihood = %.3E \t [ attachment = %.3E ; regularity = %.3E ]' %
                       (Decimal(str(attachment + regularity)),
                        Decimal(str(attachment)),
@@ -151,7 +147,7 @@ class ScipyOptimize(AbstractEstimator):
         """
         Save the results.
         """
-        self.statistical_model.write(self.dataset, self.population_RER, self.individual_RER, self.output_dir)
+        self.statistical_model.write(self.dataset, self.output_dir)
         self._dump_state_file(self._vectorize_parameters(self._get_parameters()))
 
 
@@ -165,9 +161,7 @@ class ScipyOptimize(AbstractEstimator):
 
         # Call the model method.
         try:
-            attachment, regularity = self.statistical_model.compute_log_likelihood(
-                self.dataset, self.population_RER, self.individual_RER,
-                mode=self.optimized_log_likelihood, with_grad=False)
+            attachment, regularity = self.statistical_model.compute_log_likelihood(self.dataset, with_grad=False)
 
         except ValueError as error:
             print('>> ' + str(error) + ' [ in scipy_optimize ]')
@@ -175,7 +169,7 @@ class ScipyOptimize(AbstractEstimator):
             return np.float64(float('inf'))
 
         # Prepare the outputs: notably linearize and concatenates the gradient.
-        cost = - attachment - regularity
+        cost = attachment + regularity
 
         # Return.
         return cost.astype('float64')
@@ -186,9 +180,7 @@ class ScipyOptimize(AbstractEstimator):
 
         # Call the model method.
         try:
-            attachment, regularity, gradient = self.statistical_model.compute_log_likelihood(
-                self.dataset, self.population_RER, self.individual_RER,
-                mode=self.optimized_log_likelihood, with_grad=True)
+            attachment, regularity, gradient = self.statistical_model.compute_log_likelihood(self.dataset, with_grad=True)
 
         except ValueError as error:
             print('>> ' + str(error))
@@ -210,8 +202,8 @@ class ScipyOptimize(AbstractEstimator):
             self._call_user_callback(float(attachment + regularity), float(attachment), float(regularity), gradient)
 
         # Prepare the outputs: notably linearize and concatenates the gradient.
-        cost = - attachment - regularity
-        gradient = - np.concatenate([gradient[key].flatten() for key in self.parameters_order])
+        cost = attachment + regularity
+        gradient = np.concatenate([gradient[key].flatten() for key in self.parameters_order])
 
         # Memory for exception handling.
         self._gradient_memory = gradient.astype('float64')
@@ -241,9 +233,6 @@ class ScipyOptimize(AbstractEstimator):
         Return a dictionary of numpy arrays.
         """
         out = self.statistical_model.get_fixed_effects()
-        if self.optimized_log_likelihood == 'complete':
-            out.update(self.population_RER)
-            out.update(self.individual_RER)
         return out
 
     def _get_parameters_range(self, x):
@@ -275,9 +264,6 @@ class ScipyOptimize(AbstractEstimator):
         """
         fixed_effects = {key: parameters[key] for key in self.statistical_model.get_fixed_effects().keys()}
         self.statistical_model.set_fixed_effects(fixed_effects)
-        if self.optimized_log_likelihood == 'complete':
-            self.population_RER = {key: parameters[key] for key in self.population_RER.keys()}
-            self.individual_RER = {key: parameters[key] for key in self.individual_RER.keys()}
 
     ####################################################################################################################
     ### Pickle dump and load methods:

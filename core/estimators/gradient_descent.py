@@ -25,7 +25,6 @@ class GradientDescent(AbstractEstimator):
     ####################################################################################################################
 
     def __init__(self, statistical_model, dataset, optimization_method_type='undefined', individual_RER={},
-                 optimized_log_likelihood=default.optimized_log_likelihood,
                  max_iterations=default.max_iterations, convergence_tolerance=default.convergence_tolerance,
                  print_every_n_iters=default.print_every_n_iters, save_every_n_iters=default.save_every_n_iters,
                  scale_initial_step_size=default.scale_initial_step_size, initial_step_size=default.initial_step_size,
@@ -37,10 +36,8 @@ class GradientDescent(AbstractEstimator):
                  **kwargs):
 
         super().__init__(statistical_model=statistical_model, dataset=dataset, name='GradientDescent',
-                         optimized_log_likelihood=optimized_log_likelihood,
                          max_iterations=max_iterations, convergence_tolerance=convergence_tolerance,
                          print_every_n_iters=print_every_n_iters, save_every_n_iters=save_every_n_iters,
-                         individual_RER=individual_RER,
                          callback=callback, state_file=state_file, output_dir=output_dir)
 
         assert optimization_method_type.lower() == self.name.lower()
@@ -254,8 +251,7 @@ class GradientDescent(AbstractEstimator):
         out = self.statistical_model.get_fixed_effects()
         out.update(self.population_RER)
         out.update(self.individual_RER)
-        assert len(out) == len(self.statistical_model.get_fixed_effects()) \
-                           + len(self.population_RER) + len(self.individual_RER)
+        assert len(out) == len(self.statistical_model.get_fixed_effects())
         return out
 
     def _evaluate_model_fit(self, parameters, with_grad=False):
@@ -284,8 +280,6 @@ class GradientDescent(AbstractEstimator):
     def _set_parameters(self, parameters):
         fixed_effects = {key: parameters[key] for key in self.statistical_model.get_fixed_effects().keys()}
         self.statistical_model.set_fixed_effects(fixed_effects)
-        self.population_RER = {key: parameters[key] for key in self.population_RER.keys()}
-        self.individual_RER = {key: parameters[key] for key in self.individual_RER.keys()}
 
     def _load_state_file(self):
         with open(self.state_file, 'rb') as f:
@@ -296,48 +290,3 @@ class GradientDescent(AbstractEstimator):
         d = {'current_parameters': self.current_parameters, 'current_iteration': self.current_iteration}
         with open(self.state_file, 'wb') as f:
             pickle.dump(d, f)
-
-    def _check_model_gradient(self):
-        attachment, regularity, gradient = self._evaluate_model_fit(self.current_parameters, with_grad=True)
-        parameters = copy.deepcopy(self.current_parameters)
-
-        epsilon = 1e-3
-
-        for key in gradient.keys():
-            if key in ['image_intensities', 'landmark_points', 'modulation_matrix', 'sources']: continue
-
-            print('Checking gradient of ' + key + ' variable')
-            parameter_shape = gradient[key].shape
-
-            # To limit the cost if too many parameters of the same kind.
-            nb_to_check = 100
-            for index, _ in np.ndenumerate(gradient[key]):
-                if nb_to_check > 0:
-                    nb_to_check -= 1
-                    perturbation = np.zeros(parameter_shape)
-                    perturbation[index] = epsilon
-
-                    # Perturb in +epsilon direction
-                    new_parameters_plus = copy.deepcopy(parameters)
-                    new_parameters_plus[key] += perturbation
-                    new_attachment_plus, new_regularity_plus = self._evaluate_model_fit(new_parameters_plus)
-                    total_plus = new_attachment_plus + new_regularity_plus
-
-                    # Perturb in -epsilon direction
-                    new_parameters_minus = copy.deepcopy(parameters)
-                    new_parameters_minus[key] -= perturbation
-                    new_attachment_minus, new_regularity_minus = self._evaluate_model_fit(new_parameters_minus)
-                    total_minus = new_attachment_minus + new_regularity_minus
-
-                    # Numerical gradient:
-                    numerical_gradient = (total_plus - total_minus) / (2 * epsilon)
-                    if gradient[key][index] ** 2 < 1e-5:
-                        relative_error = 0
-                    else:
-                        relative_error = abs((numerical_gradient - gradient[key][index]) / gradient[key][index])
-                    # assert relative_error < 1e-6 or np.isnan(relative_error), \
-                    #     "Incorrect gradient for variable {} {}".format(key, relative_error)
-                    # Extra printing
-                    print("Relative error for index " + str(index) + ': ' + str(relative_error)
-                          + '\t[ numerical gradient: ' + str(numerical_gradient)
-                          + '\tvs. torch gradient: ' + str(gradient[key][index]) + ' ].')

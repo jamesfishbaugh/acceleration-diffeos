@@ -8,7 +8,6 @@ import torch
 
 from core import default
 from core.default import logger_format
-from core.estimators.gradient_ascent import GradientAscent
 from core.estimators.gradient_descent import GradientDescent
 from core.estimators.scipy_optimize import ScipyOptimize
 from core.models.acceleration_regression import AccelerationRegression

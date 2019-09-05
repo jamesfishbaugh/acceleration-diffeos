@@ -173,8 +173,7 @@ class AccelerationRegression(AbstractStatisticalModel):
     # Compute the functional. Numpy input/outputs.
     def compute_log_likelihood(self, dataset, with_grad=False):
         """
-        Compute the log-likelihood of the dataset, given parameters fixed_effects and random effects realizations
-        population_RER and indRER.
+        Compute the log-likelihood of the dataset
         :param dataset: LongitudinalDataset instance
         :param with_grad: Flag that indicates wether the gradient should be returned as well.
         :return:
@@ -310,7 +309,7 @@ class AccelerationRegression(AbstractStatisticalModel):
     ### Writing methods:
     ####################################################################################################################
 
-    def write(self, dataset, population_RER, individual_RER, output_dir, write_adjoint_parameters=False):
+    def write(self, dataset, output_dir, write_adjoint_parameters=False):
         self._write_model_predictions(output_dir, dataset, write_adjoint_parameters)
         self._write_model_parameters(output_dir)
 
