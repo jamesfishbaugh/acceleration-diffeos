@@ -23,8 +23,12 @@ where
 
 **Try an example**
 
+![Synthetic bullseye sequence](https://github.com/jamesfishbaugh/acceleration-diffeos/blob/master/examples/2D/bullseye/acceleration_diffeos_synthetic_bullseye.png)
+
 Navigate to the directory `examples/2D/bullseye` and run the command:
 
 `../../../acceleration_diffeos.py estimate model.xml data_set.xml --p optimization_parameters.xml`
 
 which will output the current model every 50 iterations into `examples/2D/bullseye/output/`.
+
+
