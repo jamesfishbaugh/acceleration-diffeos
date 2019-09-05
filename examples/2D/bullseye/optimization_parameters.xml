@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<optimization-parameters>
+    <optimization-method-type>GradientDescent</optimization-method-type>
+    <max-iterations>5000</max-iterations>
+    <save-every-n-iters>50</save-every-n-iters>
+    <freeze-template>On</freeze-template>
+    <freeze-control-points>On</freeze-control-points>
+    <initial-step-size>1e-10</initial-step-size>
+    <scale-initial-step-size>Off</scale-initial-step-size>
+    <convergence-tolerance>1e-8</convergence-tolerance>
+    <use-cuda>On</use-cuda>
+    <estimate-initial-velocity>Off</estimate-initial-velocity>
+</optimization-parameters>
