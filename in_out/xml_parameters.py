@@ -155,6 +155,7 @@ class XmlParameters:
                                 template_object['kernel_device'] = model_xml_level3.text
                             elif model_xml_level3.tag.lower() == 'data-weight':
                                 template_object['data_weight'] = float(model_xml_level3.text)
+                                self.data_weight = float(model_xml_level3.text)
                             elif model_xml_level3.tag.lower() == 'filename':
                                 template_object['filename'] = os.path.normpath(os.path.join(os.path.dirname(model_xml_path), model_xml_level3.text))
                             else:
@@ -267,6 +268,8 @@ class XmlParameters:
                 self.sobolev_kernel_width_ratio = float(optimization_parameters_xml_level1.text)
             elif optimization_parameters_xml_level1.tag.lower() == 'initial-step-size':
                 self.initial_step_size = float(optimization_parameters_xml_level1.text)
+            elif optimization_parameters_xml_level1.tag.lower() == 'scale-initial-step-size':
+                self.scale_initial_step_size = self._on_off_to_bool(optimization_parameters_xml_level1.text)
             elif optimization_parameters_xml_level1.tag.lower() == 'freeze-template':
                 self.freeze_template = self._on_off_to_bool(optimization_parameters_xml_level1.text)
             elif optimization_parameters_xml_level1.tag.lower() == 'freeze-control-points':

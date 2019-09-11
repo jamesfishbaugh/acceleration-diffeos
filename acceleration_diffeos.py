@@ -79,8 +79,6 @@ def main():
 
         acceleration_diffeos = api.AccelerationDiffeos(output_dir=output_dir)
 
-        #accel_diffeos = api.AccelerationDiffeos(output_dir=output_dir)
-
         file_handler = logging.FileHandler(os.path.join(output_dir, 'log.txt'), mode='w')
         logger.addHandler(file_handler)
 
@@ -99,7 +97,6 @@ def main():
                 model_options=get_model_options(xml_parameters))
 
         elif xml_parameters.model_type == 'AccelerationGompertzRegression'.lower():
-            print('AccelerationGompertzRegression')
             acceleration_diffeos.estimate_acceleration_gompertz_regression(
                 xml_parameters.template_specifications,
                 get_dataset_specifications(xml_parameters),
@@ -175,10 +172,14 @@ def get_model_options(xml_parameters):
         'estimate_initial_velocity' : xml_parameters.estimate_initial_velocity,
         'initial_velocity_weight': xml_parameters.initial_velocity_weight,
         'regularity_weight': xml_parameters.regularity_weight,
-        'data-weight': xml_parameters.data_weight
+        'data_weight': xml_parameters.data_weight
     }
 
     if xml_parameters.model_type.lower() == 'AccelerationRegression'.lower():
+        options['tmin'] = xml_parameters.tmin
+        options['tmax'] = xml_parameters.tmax
+
+    elif xml_parameters.model_type.lower() == 'AccelerationGompertzRegression'.lower():
         options['tmin'] = xml_parameters.tmin
         options['tmax'] = xml_parameters.tmax
 

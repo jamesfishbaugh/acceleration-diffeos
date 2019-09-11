@@ -172,8 +172,8 @@ class AccelerationDiffeos:
         # Consistency checks.
         #
         if dataset_specifications is None or estimator_options is None:
-            assert model_type.lower() in ['Shooting'.lower(), 'ParallelTransport'.lower(), 'AccelerationFlow'.lower()], \
-                'Only the "shooting", "parallel transport", and "acceleration flow" can run without a dataset and an estimator.'
+            assert model_type.lower() in ['AccelerationFlow'.lower()], \
+                'Only the "acceleration flow" can run without a dataset and an estimator.'
 
         #
         # Initializes variables that will be checked.
