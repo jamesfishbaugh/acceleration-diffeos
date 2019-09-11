@@ -112,8 +112,6 @@ class AccelerationGompertzRegressionV2(AbstractStatisticalModel):
 
         self.number_of_control_points = len(self.fixed_effects['control_points'])
         self.number_of_time_points = number_of_time_points
-        print(self.number_of_time_points)
-        quit()
 
         # Impulse
         self.fixed_effects['impulse_t'] = initialize_impulse(initial_impulse_t, self.number_of_time_points, self.number_of_control_points, self.dimension)
