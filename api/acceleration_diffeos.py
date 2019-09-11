@@ -94,12 +94,12 @@ class AccelerationDiffeos:
         # Instantiate model
         statistical_model = AccelerationGompertzRegressionV2(template_specifications, **model_options)
 
-        target_times = dataset.times[0]
-        target_objects = dataset.deformable_objects[0]
+        #target_times = dataset.times[0]
+        #target_objects = dataset.deformable_objects[0]
 
-        last_object = target_objects[len(target_objects) - 1]
-        the_image = last_object.get_data()
-        # statistical_model.set_B(the_image['image_intensities'])
+        #last_object = target_objects[len(target_objects) - 1]
+        #the_image = last_object.get_data()
+        #statistical_model.set_A(the_image['image_intensities'])
 
         # Instantiate estimator.
         estimator = self.__instantiate_estimator(statistical_model, dataset, self.output_dir, estimator_options, default=ScipyOptimize)

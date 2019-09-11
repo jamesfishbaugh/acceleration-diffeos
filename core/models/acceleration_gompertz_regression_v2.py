@@ -110,12 +110,10 @@ class AccelerationGompertzRegressionV2(AbstractStatisticalModel):
         self.regularity_weight = regularity_weight
         self.data_weight = data_weight
 
-        print(self.data_weight)
-        print(self.regularity_weight)
-        quit()
-
         self.number_of_control_points = len(self.fixed_effects['control_points'])
         self.number_of_time_points = number_of_time_points
+        print(self.number_of_time_points)
+        quit()
 
         # Impulse
         self.fixed_effects['impulse_t'] = initialize_impulse(initial_impulse_t, self.number_of_time_points, self.number_of_control_points, self.dimension)
@@ -228,14 +226,14 @@ class AccelerationGompertzRegressionV2(AbstractStatisticalModel):
         template_data, template_points, control_points, impulse_t, initial_velocity, A, B, C = self._fixed_effects_to_torch_tensors(with_grad)
 
         # Deform -------------------------------------------------------------------------------------------------------
-        data_attachment, regularity, velocity_regularity, total_variation = self._compute_attachment_and_regularity(dataset, template_data, template_points,
+        data_attachment, regularity, velocity_regularity = self._compute_attachment_and_regularity(dataset, template_data, template_points,
                                                                                                                     control_points, impulse_t, initial_velocity,
                                                                                                                     A, B, C)
 
         # Compute gradient if needed -----------------------------------------------------------------------------------
         if with_grad:
-            total = self.initial_velocity_weight * velocity_regularity + regularity + total_variation + data_attachment
-            #total = self.initial_velocity_weight * velocity_regularity + regularity + intensity_attachment + deformation_attachment
+
+            total = self.initial_velocity_weight*velocity_regularity + self.regularity_weight*regularity + self.data_weight*data_attachment
             total.backward()
 
             gradient = {}
@@ -259,7 +257,6 @@ class AccelerationGompertzRegressionV2(AbstractStatisticalModel):
             # Initial velocity
             if self.estimate_initial_velocity:
                 gradient['initial_velocity'] = initial_velocity.grad
-                # print(initial_velocity)
 
             # Impulse t
             gradient['impulse_t'] = impulse_t.grad
@@ -270,25 +267,19 @@ class AccelerationGompertzRegressionV2(AbstractStatisticalModel):
             # Convert the gradient back to numpy.
             gradient = {key: value.data.cpu().numpy() for key, value in gradient.items()}
 
-            #return deformation_attachment.detach().cpu().numpy() + intensity_attachment.detach().cpu().numpy(), \
-            #       total_variation.detach().cpu().numpy() + regularity.detach().cpu().numpy() + self.initial_velocity_weight * velocity_regularity.detach().cpu().numpy(), gradient
-
-            return data_attachment.detach().cpu().numpy(), \
+            return self.data_weight*data_attachment.detach().cpu().numpy(), \
                    regularity.detach().cpu().numpy() + self.initial_velocity_weight * velocity_regularity.detach().cpu().numpy(), gradient
 
         else:
 
-            #eturn deformation_attachment.detach().cpu().numpy() + intensity_attachment.detach().cpu().numpy(), \
-            #       total_variation.detach().cpu().numpy() + regularity.detach().cpu().numpy() + self.initial_velocity_weight * velocity_regularity.detach().cpu().numpy()
-            return data_attachment.detach().cpu().numpy(), \
+            return self.data_weight*data_attachment.detach().cpu().numpy(), \
                    regularity.detach().cpu().numpy() + self.initial_velocity_weight * velocity_regularity.detach().cpu().numpy()
 
     ####################################################################################################################
     ### Private methods:
     ####################################################################################################################
 
-    def _compute_attachment_and_regularity(self, dataset, template_data, template_points, control_points, impulse_t,
-                                           initial_velocity, A, B, C):
+    def _compute_attachment_and_regularity(self, dataset, template_data, template_points, control_points, impulse_t,  initial_velocity, A, B, C):
         """
         Core part of the ComputeLogLikelihood methods. Fully torch.
         """
@@ -306,12 +297,7 @@ class AccelerationGompertzRegressionV2(AbstractStatisticalModel):
         self.acceleration_path.set_initial_velocity(initial_velocity)
         self.acceleration_path.update()
 
-        deformation_noise_variance = np.zeros(len(self.objects_noise_variance))
-        for i in range(0, len(deformation_noise_variance)):
-            deformation_noise_variance[i] = 0.01 #self.objects_noise_variance[i]*10
-
         data_attachment = 0
-
 
         for j, (time, obj) in enumerate(zip(target_times, target_objects)):
             deformed_points = self.acceleration_path.get_template_points(time)
@@ -320,30 +306,24 @@ class AccelerationGompertzRegressionV2(AbstractStatisticalModel):
             image_intensity_model['image_intensities'] = A * torch.exp(-B * torch.exp(-C * time))
 
             deformed_data_withitensity = self.template.get_deformed_data(deformed_points, image_intensity_model)
-            data_attachment += self.multi_object_attachment.compute_weighted_distance(deformed_data_withitensity, self.template, obj,
-                                                                                           self.objects_noise_variance)
+            data_attachment += self.multi_object_attachment.compute_weighted_distance(deformed_data_withitensity, self.template, obj)
 
-        total_variation = 0.
-        if (self.dimension == 2):
-            total_var_weight = 0.1
-            # Compute total variation norm
-            image_intensity_model = {}
-            image_intensity_model['image_intensities'] = A * torch.exp(-B * torch.exp(-C * min(target_times)))
-            height, width = image_intensity_model['image_intensities'].size()
-            dy = torch.abs(image_intensity_model['image_intensities'][-1:, :] - image_intensity_model['image_intensities'][:-1, :])
-            error = torch.norm(dy, 1)
-            total_variation = ((error / height)*total_var_weight)
+        #total_variation = 0.
+        #if (self.dimension == 2):
+        #    total_var_weight = 0
+        #    # Compute total variation norm
+        #    image_intensity_model = {}
+        #    image_intensity_model['image_intensities'] = A * torch.exp(-B * torch.exp(-C * min(target_times)))
+        #    height, width = image_intensity_model['image_intensities'].size()
+        #    dy = torch.abs(image_intensity_model['image_intensities'][-1:, :] - image_intensity_model['image_intensities'][:-1, :])
+        #    error = torch.norm(dy, 1)
+        #    total_variation = ((error / height)*total_var_weight)
 
-
-        print(self.regularity_weight)
-        quit()
-        regularity = self.acceleration_path.get_norm_squared() * self.regularity_weight
+        regularity = self.acceleration_path.get_norm_squared()
 
         velocity_regularity = self.acceleration_path.get_velocity_norm()
 
-        data_attachment = data_attachment * self.data_weight
-
-        return data_attachment, regularity, velocity_regularity, total_variation
+        return data_attachment, regularity, velocity_regularity
 
     ####################################################################################################################
     ### Private utility methods:
@@ -353,23 +333,20 @@ class AccelerationGompertzRegressionV2(AbstractStatisticalModel):
         """
         Convert the fixed_effects into torch tensors.
         """
-        # Template data.
+        # Template data
         template_data = self.fixed_effects['template_data']
-        template_data = {key: Variable(torch.from_numpy(value).type(self.tensor_scalar_type),
-                                       requires_grad=(not self.freeze_template and with_grad))
+        template_data = {key: Variable(torch.from_numpy(value).type(self.tensor_scalar_type), requires_grad=(not self.freeze_template and with_grad))
                          for key, value in template_data.items()}
 
-        # Template points.
+        # Template points
         template_points = self.template.get_points()
-        template_points = {key: Variable(torch.from_numpy(value).type(self.tensor_scalar_type),
-                                         requires_grad=(not self.freeze_template and with_grad))
+        template_points = {key: Variable(torch.from_numpy(value).type(self.tensor_scalar_type), requires_grad=(not self.freeze_template and with_grad))
                            for key, value in template_points.items()}
 
         control_points = self.fixed_effects['control_points']
-        control_points = Variable(torch.from_numpy(control_points).type(self.tensor_scalar_type),
-                                  requires_grad=(not self.freeze_control_points and with_grad))
+        control_points = Variable(torch.from_numpy(control_points).type(self.tensor_scalar_type), requires_grad=(not self.freeze_control_points and with_grad))
 
-        # Impulse.
+        # Impulse
         impulse_t = self.fixed_effects['impulse_t']
         impulse_t = Variable(torch.from_numpy(impulse_t).type(self.tensor_scalar_type), requires_grad=with_grad)
 
@@ -396,12 +373,10 @@ class AccelerationGompertzRegressionV2(AbstractStatisticalModel):
             # Now scale to the number of timesteps
             initial_velocity = initial_velocity / self.number_of_time_points
             self.fixed_effects['initial_velocity'] = initial_velocity
-            initial_velocity = Variable(torch.from_numpy(initial_velocity).type(self.tensor_scalar_type),
-                                        requires_grad=with_grad)
+            initial_velocity = Variable(torch.from_numpy(initial_velocity).type(self.tensor_scalar_type), requires_grad=with_grad)
         else:
             initial_velocity_np = np.zeros((self.number_of_control_points, self.dimension))
-            initial_velocity = Variable(torch.from_numpy(initial_velocity_np).type(self.tensor_scalar_type),
-                                        requires_grad=False)
+            initial_velocity = Variable(torch.from_numpy(initial_velocity_np).type(self.tensor_scalar_type), requires_grad=False)
 
         return template_data, template_points, control_points, impulse_t, initial_velocity, A, B, C
 
@@ -409,15 +384,14 @@ class AccelerationGompertzRegressionV2(AbstractStatisticalModel):
     ### Writing methods:
     ####################################################################################################################
 
-    def write(self, dataset, population_RER, individual_RER, output_dir, write_adjoint_parameters=False):
-        self._write_model_predictions(output_dir, dataset, write_adjoint_parameters)
+    def write(self, dataset, output_dir):
+        self._write_model_predictions(output_dir, dataset)
         self._write_model_parameters(output_dir)
 
-    def _write_model_predictions(self, output_dir, dataset=None, write_adjoint_parameters=False):
+    def _write_model_predictions(self, output_dir, dataset=None):
 
         # Initialize ---------------------------------------------------------------------------------------------------
-        template_data, template_points, control_points, impulse_t, initial_velocity, A, B, C = self._fixed_effects_to_torch_tensors(
-            False)
+        template_data, template_points, control_points, impulse_t, initial_velocity, A, B, C = self._fixed_effects_to_torch_tensors(False)
         target_times = dataset.times[0]
 
         template_data = self.template.get_data()
@@ -434,8 +408,7 @@ class AccelerationGompertzRegressionV2(AbstractStatisticalModel):
         self.acceleration_path.update()
 
         # Write --------------------------------------------------------------------------------------------------------
-        self.acceleration_path.write(self.name, self.objects_name, self.objects_name_extension, self.template,
-                                     template_data, A, B, C, output_dir, write_adjoint_parameters)
+        self.acceleration_path.write_with_gompertz(self.name, self.objects_name, self.objects_name_extension, self.template, template_data, A, B, C, output_dir)
 
         # Model predictions.
         if dataset is not None:
@@ -447,11 +420,10 @@ class AccelerationGompertzRegressionV2(AbstractStatisticalModel):
                     print(name)
                     names.append(name)
                 deformed_points = self.acceleration_path.get_template_points(time)
-                linear_image_model = {}
-                linear_image_model['image_intensities'] = A * torch.exp(-B * torch.exp(-C * time))
-                deformed_data = self.template.get_deformed_data(deformed_points, linear_image_model)
-                self.template.write(output_dir, names,
-                                    {key: value.data.cpu().numpy() for key, value in deformed_data.items()})
+                gompertz_image_model = {}
+                gompertz_image_model['image_intensities'] = A * torch.exp(-B * torch.exp(-C * time))
+                deformed_data = self.template.get_deformed_data(deformed_points, gompertz_image_model)
+                self.template.write(output_dir, names, {key: value.data.cpu().numpy() for key, value in deformed_data.items()})
 
         # Write the A, B, and C images
         A_im = image.Image(self.dimension)
@@ -475,8 +447,6 @@ class AccelerationGompertzRegressionV2(AbstractStatisticalModel):
             A_im.write(output_dir, self.name + "__A_image.nii", should_rescale=False)
             B_im.write(output_dir, self.name + "__B_image.nii", should_rescale=False)
             C_im.write(output_dir, self.name + "__C_image.nii", should_rescale=False)
-
-
 
     def _write_model_parameters(self, output_dir):
         # Control points.

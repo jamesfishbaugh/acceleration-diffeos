@@ -172,20 +172,24 @@ def get_model_options(xml_parameters):
         'estimate_initial_velocity' : xml_parameters.estimate_initial_velocity,
         'initial_velocity_weight': xml_parameters.initial_velocity_weight,
         'regularity_weight': xml_parameters.regularity_weight,
-        'data_weight': xml_parameters.data_weight
+        'data_weight': xml_parameters.data_weight,
+        'number_of_time_points': xml_parameters.number_of_time_points
     }
 
     if xml_parameters.model_type.lower() == 'AccelerationRegression'.lower():
         options['tmin'] = xml_parameters.tmin
         options['tmax'] = xml_parameters.tmax
+        options['number_of_time_points'] = xml_parameters.number_of_time_points
 
     elif xml_parameters.model_type.lower() == 'AccelerationGompertzRegression'.lower():
         options['tmin'] = xml_parameters.tmin
         options['tmax'] = xml_parameters.tmax
+        options['number_of_time_points'] = xml_parameters.number_of_time_points
 
     elif xml_parameters.model_type.lower() == 'AccelerationFlow'.lower():
         options['tmin'] = xml_parameters.tmin
         options['tmax'] = xml_parameters.tmax
+        options['number_of_time_points'] = xml_parameters.number_of_time_points
 
     # logger.debug(options)
     return options
