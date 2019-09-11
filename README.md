@@ -7,7 +7,7 @@ Nonparametric image and shape (2D or 3D) regression by acceleration controlled d
 
 **Requirements**
 
-This software is built from the source code of **Deformetrica**. It is recommended you install deformetrica following the directions at http://www.deformetrica.org, which will install necessary dependencies.* 
+This software is built from the source code of **Deformetrica**. It is recommended you install deformetrica following the directions at http://www.deformetrica.org, which will install necessary dependencies.
 
 **Running the application**
 
